@@ -922,6 +922,180 @@
 
         /* Исходный план (как в cmet calculator) */
         .plan-wrap { max-width: 720px; }
+
+        /* Справка для новых пользователей */
+        .user-guide {
+            margin: 0 0 1.25rem;
+            padding: 1rem 1.1rem 1.1rem;
+            background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+            border: 1px solid #c5d4e8;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(44, 82, 130, 0.08);
+        }
+        .user-guide[hidden] { display: none !important; }
+        .user-guide__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.5rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .user-guide__head h2 {
+            margin: 0;
+            font-size: 1.08rem;
+            color: var(--accent2);
+            line-height: 1.35;
+            max-width: 42rem;
+        }
+        .user-guide__toggle {
+            flex-shrink: 0;
+            padding: 0.35rem 0.7rem;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: #fff;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .user-guide__toggle:hover { background: #f4f7fb; color: var(--accent2); }
+        .user-guide__intro {
+            margin: 0 0 0.85rem;
+            font-size: 0.92rem;
+            color: #334155;
+            line-height: 1.55;
+        }
+        .user-guide details {
+            margin: 0 0 0.45rem;
+            border: 1px solid #dbe4f0;
+            border-radius: 8px;
+            background: #fff;
+            overflow: hidden;
+        }
+        .user-guide details[open] { box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .user-guide summary {
+            padding: 0.55rem 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent2);
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+        .user-guide summary::-webkit-details-marker { display: none; }
+        .user-guide summary::before {
+            content: "▸ ";
+            display: inline-block;
+            transition: transform 0.15s ease;
+        }
+        .user-guide details[open] summary::before { transform: rotate(90deg); }
+        .user-guide__body {
+            padding: 0 0.85rem 0.75rem;
+            font-size: 0.88rem;
+            color: #334155;
+            line-height: 1.55;
+        }
+        .user-guide__body p { margin: 0 0 0.55rem; }
+        .user-guide__body ul,
+        .user-guide__body ol { margin: 0.35rem 0 0.55rem; padding-left: 1.25rem; }
+        .user-guide__body li { margin: 0.25rem 0; }
+        .user-guide__steps {
+            counter-reset: ugstep;
+            list-style: none;
+            padding-left: 0;
+            margin: 0.35rem 0 0.55rem;
+        }
+        .user-guide__steps li {
+            position: relative;
+            padding: 0.45rem 0.55rem 0.45rem 2.35rem;
+            margin: 0.35rem 0;
+            background: #f8fafc;
+            border: 1px solid #e8ecf2;
+            border-radius: 8px;
+        }
+        .user-guide__steps li::before {
+            counter-increment: ugstep;
+            content: counter(ugstep);
+            position: absolute;
+            left: 0.55rem;
+            top: 0.45rem;
+            width: 1.35rem;
+            height: 1.35rem;
+            border-radius: 50%;
+            background: var(--accent2);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            line-height: 1.35rem;
+            text-align: center;
+        }
+        .user-guide__legend {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+            margin: 0.35rem 0 0.55rem;
+        }
+        .user-guide__legend th,
+        .user-guide__legend td {
+            padding: 0.35rem 0.45rem;
+            border-bottom: 1px solid #e8ecf2;
+            text-align: left;
+            vertical-align: top;
+        }
+        .user-guide__legend th { color: var(--muted); font-weight: 600; width: 38%; }
+        .user-guide__tip {
+            margin: 0.55rem 0 0;
+            padding: 0.55rem 0.7rem;
+            background: #fff8e6;
+            border: 1px solid #e8d4a8;
+            border-radius: 8px;
+            color: #5c4a28;
+            font-size: 0.86rem;
+        }
+        .user-guide-show-btn {
+            margin: 0 0 1rem;
+            padding: 0.4rem 0.75rem;
+            border: 1px dashed #c5d4e8;
+            border-radius: 8px;
+            background: #fff;
+            color: var(--accent2);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .user-guide-show-btn[hidden] { display: none !important; }
+        .user-guide-show-btn:hover { background: #f4f7fb; }
+        .panel-user-hint {
+            margin: 0 0 0.85rem;
+            padding: 0.65rem 0.85rem;
+            background: #f0f6ff;
+            border: 1px solid #c5d4e8;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            color: #334155;
+            line-height: 1.5;
+        }
+        .panel-user-hint strong { color: var(--accent2); }
+        .plan-field-hint {
+            display: block;
+            margin: 0.2rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+        .works-first-hint {
+            margin: 0 0 0.85rem;
+            padding: 0.65rem 0.85rem;
+            background: #fff8e6;
+            border: 1px solid #e8d4a8;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            color: #5c4a28;
+            line-height: 1.45;
+        }
         .plan-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1038,14 +1212,96 @@
         </div>
     </header>
     <div class="wrap">
+        <p id="worksGlobalHint" class="works-first-hint" hidden><strong>Выбор работ:</strong> поставьте <strong>галочку слева</strong> у нужного пункта меню — в смету попадёт только отмеченное. Нажмите название, чтобы открыть расценки и материалы. Сначала заполните «Исходный план» (иконка домика) и нажмите «Рассчитать площади».</p>
         <!-- ========== ИСХОДНЫЙ ПЛАН (расчёт как в cmet calculator) ========== -->
         <div id="panel-plan" class="tab-panel active" role="tabpanel" aria-labelledby="tab-plan">
+            <section class="user-guide" id="userGuide" aria-label="Справка по использованию">
+                <div class="user-guide__head">
+                    <h2>Справочник работ и материалов — описание и инструкция</h2>
+                    <button type="button" class="user-guide__toggle" id="userGuideHideBtn" title="Скрыть блок; можно вернуть кнопкой ниже">Скрыть подсказки</button>
+                </div>
+                <p class="user-guide__intro">Это калькулятор ремонта квартиры: вы задаёте параметры объекта, отмечаете нужные работы — программа считает <strong>смету</strong> (стоимость работ), <strong>график этапов</strong>, список <strong>материалов</strong> и формирует <strong>корзину Леруа Мерлен</strong> с артикулами и количествами. Все расчёты выполняются в браузере; данные сохраняются на вашем устройстве.</p>
+
+                <details open>
+                    <summary>Быстрый старт — с чего начать</summary>
+                    <div class="user-guide__body">
+                        <ol class="user-guide__steps">
+                            <li><strong>Заполните «Исходный план»</strong> ниже: тип квартиры, площадь, высота потолков, санузел. По желанию укажите адрес — он попадёт в заголовок сметы и имя файла Excel.</li>
+                            <li>Нажмите <strong>«Рассчитать площади»</strong>. Появятся стены, полы, потолки, санузел — при необходимости подправьте числа вручную.</li>
+                            <li>В верхней полоске выберите раздел работ (Демонтаж, Электромонтаж, Стены…). <strong>Слева от названия поставьте галочку</strong> — только отмеченные работы попадут в смету.</li>
+                            <li>Внутри раздела уточните количества (розетки, площади, штуки) — поля появляются над таблицами материалов.</li>
+                            <li>Откройте иконку <strong>«Смета»</strong> слева в шапке — увидите стоимость работ, экспорт в Excel, корректировку расценок ±%. Рядом — график этапов, материалы и корзина.</li>
+                        </ol>
+                        <p class="user-guide__tip"><strong>Совет:</strong> если смета пустая — проверьте, что нажали «Рассчитать площади» и отмечены галочки у нужных подразделов слева в меню работ.</p>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>Как устроен экран</summary>
+                    <div class="user-guide__body">
+                        <table class="user-guide__legend">
+                            <thead><tr><th>Элемент</th><th>Назначение</th></tr></thead>
+                            <tbody>
+                                <tr><td>Иконка «домик»</td><td><strong>Исходный план</strong> — параметры квартиры и расчёт площадей. Начинайте отсюда.</td></tr>
+                                <tr><td>Иконка «калькулятор»</td><td><strong>Смета</strong> — работы и суммы в рублях, экспорт, копирование, ссылка на корзину.</td></tr>
+                                <tr><td>Иконка «буфер»</td><td><strong>Этапы работ</strong> — сроки по этапам (8 ч ≈ 1 рабочий день), диаграмма и календарь.</td></tr>
+                                <tr><td>Иконка «коробка»</td><td><strong>Выбранные материалы</strong> — что закупать по отделке, со ссылками на каталог.</td></tr>
+                                <tr><td>Иконка «корзина»</td><td><strong>Корзина материалов</strong> — таблица артикулов Леруа Мерлен и кнопка «открыть корзину».</td></tr>
+                                <tr><td>Полоска разделов справа</td><td>Каталог работ: демонтаж, электрика, сантехника, отделка… Листайте вправо, если не всё видно.</td></tr>
+                                <tr><td>Галочка слева от пункта меню</td><td><strong>Включить работу в расчёт.</strong> Без галочки раздел только для справки — в смету не попадёт.</td></tr>
+                                <tr><td>Кнопка с названием (без галочки)</td><td>Открывает описание, расценки и таблицу материалов по этому виду работ.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>Что считает программа автоматически</summary>
+                    <div class="user-guide__body">
+                        <ul>
+                            <li><strong>Площади</strong> — из типа квартиры, общей площади, высоты и санузла (стены по комнатам, полы, потолки, плитка в ванной).</li>
+                            <li><strong>Смета работ</strong> — расценки за м², п.м., шт. по отмеченным галочкам и введённым количествам.</li>
+                            <li><strong>Материалы</strong> — нормы расхода (мешки штукатурки, клей, грунтовка, кабель и т.д.) по площадям и выбранным видам отделки.</li>
+                            <li><strong>Корзина Леруа</strong> — артикулы и количества для интернет-магазина (регион: Новосибирск). Ссылка собирается автоматически.</li>
+                            <li><strong>График</strong> — длительность этапов по формулам; можно задать дату начала ремонта на вкладке «Этапы».</li>
+                        </ul>
+                        <p>Окна, межкомнатные двери и часть позиций — только в смете работ; материалы на них в корзину не добавляются (закупка отдельно).</p>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>Сохранение и сброс</summary>
+                    <div class="user-guide__body">
+                        <ul>
+                            <li><strong>Сохранить проект</strong> — скачивает файл JSON со всеми полями, галочками и площадями. Можно передать заказчику или открыть позже на другом компьютере.</li>
+                            <li><strong>Загрузить проект</strong> — восстанавливает сохранённый расчёт из файла.</li>
+                            <li><strong>Сбросить расчёт</strong> — снимает все галочки и очищает итоговые площади; параметры квартиры остаются.</li>
+                            <li>Часть полей запоминается в браузере автоматически (localStorage) — при повторном открытии сайта на том же устройстве данные подставятся сами.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>Кнопки на вкладке «Смета»</summary>
+                    <div class="user-guide__body">
+                        <ul>
+                            <li><strong>Экспорт в Excel</strong> — скачать смету таблицей для печати или отправки.</li>
+                            <li><strong>Корзина материалов (Леруа Мерлен)</strong> — открыть готовую корзину с товарами по артикулам.</li>
+                            <li><strong>Скопировать</strong> — текст сметы в буфер обмена.</li>
+                            <li><strong>Ползунок ±%</strong> — изменить все расценки на заданный процент (скидка или наценка).</li>
+                        </ul>
+                    </div>
+                </details>
+            </section>
+            <button type="button" class="user-guide-show-btn" id="userGuideShowBtn" hidden>Показать инструкцию и описание программы</button>
             <div class="plan-wrap">
                 <h2 style="margin:0 0 0.5rem;font-size:1.05rem;color:var(--accent2);">Параметры квартиры</h2>
+                <p class="calc-embed-hint" style="margin:0 0 0.75rem;">Шаг 1: заполните поля и нажмите «Рассчитать площади». Затем отметьте нужные работы в разделах сверху (галочки слева в меню).</p>
                 <div class="plan-grid">
                     <div class="plan-field plan-field--full">
                         <label for="planAddress">Адрес объекта (для названия сметы)</label>
                         <input type="text" id="planAddress" autocomplete="street-address" placeholder="Например: г. Новосибирск, ул. Ленина, д. 1, кв. 25" title="Подставляется в заголовок сметы и в имя файла Excel" aria-label="Адрес объекта для названия сметы">
+                        <span class="plan-field-hint">Необязательно. Попадёт в шапку сметы и в имя файла при экспорте.</span>
                     </div>
                     <div class="plan-field">
                         <label for="planApartmentType">Тип квартиры</label>
@@ -1056,14 +1312,17 @@
                             <option value="3room">3-комнатная</option>
                             <option value="4room">4-комнатная</option>
                         </select>
+                        <span class="plan-field-hint">От типа зависит, как делятся стены и полы по комнатам.</span>
                     </div>
                     <div class="plan-field">
                         <label for="planTotalArea">Площадь квартиры (м²)</label>
                         <input type="number" id="planTotalArea" step="0.1" min="0" placeholder="45" title="Общая площадь квартиры; жилая часть без санузла считается автоматически (квартира минус санузел)">
+                        <span class="plan-field-hint">Общая площадь по договору или обмерам.</span>
                     </div>
                     <div class="plan-field">
                         <label for="planCeilingHeight">Высота потолков (м)</label>
                         <input type="number" id="planCeilingHeight" step="0.1" min="0" value="2.7">
+                        <span class="plan-field-hint">Нужна для площади стен и некоторых материалов (профили, штукатурка).</span>
                     </div>
                     <div class="plan-field">
                         <label for="planBathroomType">Тип санузла</label>
@@ -1071,10 +1330,12 @@
                             <option value="combined">Совмещённый</option>
                             <option value="separate">Раздельный</option>
                         </select>
+                        <span class="plan-field-hint">При раздельном появится поле «Ванная (м²)».</span>
                     </div>
                     <div class="plan-field">
                         <label for="planBathroomArea" id="planBathroomLabel">Санузел (м²)</label>
                         <input type="number" id="planBathroomArea" step="0.1" min="0" placeholder="4.5">
+                        <span class="plan-field-hint">Площадь санузла или туалета — для плитки и работ в ванной.</span>
                     </div>
                     <div class="plan-field hidden" id="planBathroomArea2Group">
                         <label for="planBathroomArea2">Ванная (м²)</label>
@@ -1092,6 +1353,7 @@
                 </div>
                 <div id="planResults" class="plan-results hidden">
                     <h3>Итоговые площади (м²) — можно редактировать</h3>
+                    <p class="calc-embed-hint" style="margin:0 0 0.6rem;">Эти числа используются во всех разделах сметы. Если обмеры точнее расчёта — измените вручную: смета и корзина обновятся автоматически.</p>
                     <table class="plan-out-table">
                         <tbody>
                             <tr><td>Стены всего (м²)</td><td><input type="number" id="planOutTotalWall" step="0.1" min="0"></td></tr>
@@ -2715,6 +2977,7 @@
 
         <!-- ========== Смета / график / материалы: без iframe, логика в cmet-shared-engine.js ========== -->
         <div id="panel-calc-estimate" class="tab-panel" role="tabpanel" aria-labelledby="tab-calc-estimate" hidden>
+            <p class="panel-user-hint"><strong>Смета</strong> обновляется сама при изменении плана, галочек и количеств. Если таблица пустая — вернитесь к «Исходному плану», рассчитайте площади и отметьте работы галочками. Ниже можно скорректировать все расценки на ±%, экспортировать в Excel или открыть корзину материалов.</p>
             <div id="spravEstimateNative" class="estimate-section sprav-estimate-native">
                 <div id="spravEstimateMirror"></div>
                 <div id="spravEstimateAdjustBar" class="estimate-adjust-bar" hidden>
@@ -2735,13 +2998,13 @@
             </div>
         </div>
         <div id="panel-calc-phases" class="tab-panel" role="tabpanel" aria-labelledby="tab-calc-phases" hidden>
-            <p class="calc-embed-hint">Тепловая шкала или кольцевая диаграмма и вертикальная лента этапов по формулам из плана и отмеченных работ (8 ч ≈ 1 рабочий день на этап). Обновляется вместе со сметой.</p>
+            <p class="panel-user-hint"><strong>График ремонта</strong> строится по отмеченным работам и площадям из плана. Одна рабочая смена ≈ 8 часов. Укажите дату начала — программа покажет сроки по этапам. Можно переключить вид: тепловая шкала или круговая диаграмма.</p>
             <div id="spravPhasesNative" class="sprav-schedule-native" aria-live="polite">
                 <p class="sprav-schedule-hint">Отметьте работы слева и заполните «Исходный план» — график появится здесь.</p>
             </div>
         </div>
         <div id="panel-calc-materials" class="tab-panel" role="tabpanel" aria-labelledby="tab-calc-materials" hidden>
-            <p class="calc-embed-hint">Список выбранных материалов и услуг обновляется вместе со сметой (чекбоксы подразделов и «Исходный план»).</p>
+            <p class="panel-user-hint"><strong>Материалы для закупки</strong> — по выбранным видам отделки и работам. Ссылки ведут в каталог Леруа Мерлен (Новосибирск). Кнопка «Скопировать ссылки» — список для отправки или проверки.</p>
             <div class="sprav-estimate-native">
                 <div id="spravMaterialsNative" class="sprav-materials-native" aria-live="polite"></div>
                 <div class="estimate-buttons">
@@ -2752,7 +3015,7 @@
         <div id="panel-calc-basket" class="tab-panel" role="tabpanel" aria-labelledby="tab-calc-basket" hidden>
             <div class="sprav-full-basket-wrap sprav-calc-basket-panel">
                 <h4 class="sprav-full-basket-title">Корзина материалов</h4>
-                <p class="sprav-full-basket-note">Состав и количества по отмеченным работам и исходному плану (<code>getBasketProducts</code> в cmet-shared-engine.js). Обновляется вместе со сметой.</p>
+                <p class="panel-user-hint" style="margin-bottom:0.75rem;">Здесь — <strong>готовый список товаров</strong> с артикулами и количествами для Леруа Мерлен. Нажмите ссылку внизу — откроется корзина магазина с уже подобранными позициями. Состав совпадает с кнопкой «Корзина материалов» на вкладке «Смета».</p>
                 <div class="sprav-full-basket-table-host" aria-live="polite"></div>
                 <a class="btn-link sprav-full-basket-link sprav-full-basket-link--disabled" href="#" target="_blank" rel="noopener" aria-disabled="true">Корзина материалов (Леруа Мерлен)</a>
             </div>
@@ -5462,6 +5725,14 @@
         }
     }
 
+    var SPRAV_WORK_TAB_IDS = ['demolition', 'partitions', 'electric', 'plumbing', 'walls', 'floors', 'bath-walls', 'bath-floor', 'ceilings', 'lighting', 'windows-doors'];
+
+    function updateWorksGlobalHint(tab) {
+        var hint = document.getElementById('worksGlobalHint');
+        if (!hint) return;
+        hint.hidden = SPRAV_WORK_TAB_IDS.indexOf(tab) === -1;
+    }
+
     /** Плавно центрирует активную вкладку в прокручиваемой полоске (не для боковых кнопок: план, смета и т.д.). */
     function scrollMainTabIntoView(btn) {
         if (!btn || btn.classList.contains('main-tab-side-btn')) return;
@@ -5490,6 +5761,7 @@
             });
             syncCalcEmbed(tab);
             scrollMainTabIntoView(btn);
+            updateWorksGlobalHint(tab);
         });
     });
 
@@ -6530,6 +6802,35 @@
     initRefWindowsDoorsPcsBanner();
 
     initPlanPanel();
+
+    function initUserGuide() {
+        var guide = document.getElementById('userGuide');
+        var hideBtn = document.getElementById('userGuideHideBtn');
+        var showBtn = document.getElementById('userGuideShowBtn');
+        if (!guide) return;
+        try {
+            if (localStorage.getItem('sprav_hide_user_guide_v1') === '1') {
+                guide.hidden = true;
+                if (showBtn) showBtn.hidden = false;
+            }
+        } catch (eGuide) { /* ignore */ }
+        if (hideBtn) {
+            hideBtn.addEventListener('click', function () {
+                guide.hidden = true;
+                if (showBtn) showBtn.hidden = false;
+                try { localStorage.setItem('sprav_hide_user_guide_v1', '1'); } catch (eH) { /* ignore */ }
+            });
+        }
+        if (showBtn) {
+            showBtn.addEventListener('click', function () {
+                guide.hidden = false;
+                showBtn.hidden = true;
+                try { localStorage.removeItem('sprav_hide_user_guide_v1'); } catch (eS) { /* ignore */ }
+                guide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+    }
+    initUserGuide();
 })();
     </script>
 </body>
