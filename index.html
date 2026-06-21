@@ -12,6 +12,24 @@
         body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: var(--bg); color: #1a1a1a; line-height: 1.45; font-size: 15px; }
         .page-top { background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 10; }
         .page-top .wrap { padding: 0.65rem 1rem 0.5rem; }
+        .page-contact {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.35rem 0.75rem;
+            margin: 0 0 0.45rem;
+            font-size: 0.88rem;
+            color: var(--muted);
+        }
+        .page-contact__name { font-weight: 700; color: var(--accent2); }
+        .page-contact a {
+            color: var(--accent2);
+            text-decoration: none;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .page-contact a:hover { text-decoration: underline; }
         .wrap { max-width: 1180px; margin: 0 auto; padding: 0 1rem 2rem; }
 
         /* Исходный план, смета, этапы, материалы, корзина — отдельные кнопки слева; разделы работ — прокручиваемая полоска */
@@ -992,6 +1010,7 @@
 <body>
     <header class="page-top">
         <div class="wrap">
+            <p class="page-contact"><span class="page-contact__name">Павел</span> <a href="tel:+79529394194">+7&nbsp;952&nbsp;939-41-94</a></p>
             <div class="main-tabs-row">
                 <div class="main-tabs-side" aria-label="Исходный план, смета, этапы работ, материалы, корзина">
                     <button type="button" class="main-tab-side-btn main-tab-side-btn--icon" role="tab" id="tab-plan" aria-selected="true" aria-controls="panel-plan" data-tab="plan" title="Исходный план" aria-label="Исходный план"><span class="main-tab-side-btn__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V9l4-3 3 2 3-2 4 3v12"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg></span></button>
