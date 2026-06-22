@@ -1492,7 +1492,7 @@ function buildMaterialsListHtml() {
                     
                     switch(additionalMaterial.type) {
                         case 'ceramicGraniteApron':
-                            additionalWorkRate = 3300;
+                            additionalWorkRate = 2800;
                             additionalWorkName = "Укладка фартука из керамогранита";
                             break;
                         default:
@@ -1557,10 +1557,10 @@ function buildMaterialsListHtml() {
                 if (apronAreaSqm > 0) {
                     items.push({
                         name: "Укладка фартука из керамогранита",
-                        rate: 3300,
+                        rate: 2800,
                         quantity: apronAreaSqm.toFixed(1),
                         unit: "кв.м.",
-                        total: (apronAreaSqm * 3300).toFixed(1)
+                        total: (apronAreaSqm * 2800).toFixed(1)
                     });
                     pushTileCementGrout(items, apronAreaSqm);
                 }
@@ -1681,7 +1681,7 @@ function buildMaterialsListHtml() {
                     floorWorkName = "Укладка ламината";
                     break;
                 case 'pvc':
-                    floorWorkRate = 1200;
+                    floorWorkRate = 950;
                     floorWorkName = "Укладка ПВХ плитки";
                     break;
                 case 'tile':
@@ -1790,14 +1790,14 @@ function buildMaterialsListHtml() {
                         total: (bathroomPrimerQty * 60).toFixed(1)
                     });
 
-                    // Укладка на пол плитки (мозаика 3000, керамогранит 3300, стандартная 3000)
+                    // Укладка на пол плитки (мозаика 3000, керамогранит 2800, стандартная 3000)
                     let floorTileRate = 3000;
                     let floorTileName = "Укладка на пол стандартной плитки";
                     if (selectedMaterials.bathroomFloors.type === 'mosaic') {
                         floorTileRate = 3000;
                         floorTileName = "Укладка мозаики на пол";
                     } else if (selectedMaterials.bathroomFloors.type === 'porcelain') {
-                        floorTileRate = 3300;
+                        floorTileRate = 2800;
                         floorTileName = "Укладка керамогранита на пол";
                     }
                     floorTileSection.subsections[0].items.push({
@@ -1931,8 +1931,8 @@ function buildMaterialsListHtml() {
                         });
                     }
 
-                    // Облицовка стен плиткой (мозаика 3000, керамогранит 3300, стандартная 3000)
-                    let wallTileRate = 3000;
+                    // Облицовка стен плиткой (мозаика 3000, керамогранит 3300, стандартная 2600)
+                    let wallTileRate = 2600;
                     let wallTileName = "Облицовка стен стандартной плиткой";
                     if (selectedMaterials.wallTile.type === 'mosaic') {
                         wallTileRate = 3000;
