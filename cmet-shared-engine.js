@@ -105,6 +105,19 @@ function selfLevelingEffectiveThicknessMm(thicknessMm) {
 /** Расценки укладки керамической плитки и керамогранита в смете (₽/кв.м.). */
 const ESTIMATE_RATE_TILE_CERAMIC_SQM = 2600;
 const ESTIMATE_RATE_TILE_PORCELAIN_SQM = 2800;
+const ESTIMATE_RATE_TILE_CEMENT_GROUT_SQM = 150;
+
+function pushTileCementGrout(items, areaSqm) {
+    const a = parseFloat(areaSqm) || 0;
+    if (a <= 0 || !items) return;
+    items.push({
+        name: "Затирка плитки цементной затиркой",
+        rate: ESTIMATE_RATE_TILE_CEMENT_GROUT_SQM,
+        quantity: a.toFixed(1),
+        unit: "кв.м.",
+        total: (a * ESTIMATE_RATE_TILE_CEMENT_GROUT_SQM).toFixed(1)
+    });
+}
 
 /** Тариф работы «Наливной пол» в смете (₽/м²) по толщине слоя из подраздела (пусто — база 5 мм → 400). */
 function selfLevelingWorkRatePerSqm(thicknessMm) {
@@ -155,23 +168,520 @@ function wallPuttyEstimateLabel(t) {
     return 'Шпаклёвка стен (2 слоя)';
 }
 
-function pushWallAcrylicPrimerLine(items, areaSq, layers) {
-    const sq = parseFloat(areaSq) || 0;
-    const n = layers != null && layers > 0 ? layers : 1;
+function pushWallAcrylicPrimerLine(items, totalAreaSq) {
+    const sq = parseFloat(totalAreaSq) || 0;
     if (sq <= 0) return;
-    let label = 'Грунтовка акриловая стен (1 слой)';
-    if (n > 1) {
-        label = n >= 2 && n <= 4
-            ? 'Грунтовка акриловая стен (' + n + ' слоя)'
-            : 'Грунтовка акриловая стен (' + n + ' слоёв)';
-    }
     items.push({
-        name: label,
+        name: 'Грунтовка акриловая стен',
         rate: 60,
-        quantity: (sq * n).toFixed(1),
+        quantity: sq.toFixed(1),
         unit: 'кв.м.',
-        total: (sq * n * 60).toFixed(1)
+        total: (sq * 60).toFixed(1)
     });
+}
+
+function getLivingWallFinishVariants(sm) {
+    if (!sm) return [];
+    if (sm.wallsVariants && sm.wallsVariants.length) return sm.wallsVariants;
+    if (sm.walls) return [sm.walls];
+    return [];
+}
+
+/** Сумма м² грунтовки: по каждой отмеченной позиции стен — её выбранная площадь. */
+function computeTotalWallLivingPrimerSqm(sm) {
+    if (!sm) return 0;
+    let total = 0;
+    (sm.additionalWalls || []).forEach(function (m) {
+        if (m.type === 'plaster' || isWallPuttySpravType(m.type)) {
+            const sq = parseAreaStringToSqm(m.area);
+            if (sq != null && sq > 0) total += sq;
+        }
+    });
+    getLivingWallFinishVariants(sm).forEach(function (wv) {
+        const sq = parseAreaStringToSqm(wv.area);
+        if (sq != null && sq > 0) total += sq;
+    });
+    return total;
+}
+
+function wallFinishWorkRow(type) {
+    let wallWorkRate = 0;
+    let wallWorkName = "";
+    switch (type) {
+        case 'paint':
+            wallWorkRate = 300;
+            wallWorkName = "Покраска стен";
+            break;
+        case 'wallpaper':
+            wallWorkRate = 300;
+            wallWorkName = "Поклейка обоев";
+            break;
+        case 'decorative':
+            wallWorkRate = 950;
+            wallWorkName = "Декоративная штукатурка";
+            break;
+        case 'panels':
+            wallWorkRate = 950;
+            wallWorkName = "Установка панелей";
+            break;
+        case 'tile':
+            wallWorkRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
+            wallWorkName = "Укладка керамической плитки на стенах";
+            break;
+        case 'porcelain':
+            wallWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
+            wallWorkName = "Укладка керамогранита на стенах";
+            break;
+        case 'plaster':
+            wallWorkRate = 350;
+            wallWorkName = "Штукатурка стен";
+            break;
+        case 'gypsumFrame':
+            wallWorkRate = 850;
+            wallWorkName = "Обшивка стен гипсокартоном на каркасе";
+            break;
+        default:
+            wallWorkRate = 0;
+            wallWorkName = "Неизвестный материал";
+            break;
+    }
+    return { wallWorkRate: wallWorkRate, wallWorkName: wallWorkName };
+}
+
+function hasLivingWallEstimateWorks(sm) {
+    if (!sm) return false;
+    if (getLivingWallFinishVariants(sm).length) return true;
+    return (sm.additionalWalls || []).some(function (m) {
+        return m.type === 'plaster' || isWallPuttySpravType(m.type) || m.type === 'ceramicGraniteApron';
+    });
+}
+
+function buildLivingWallsEstimateItems(sm) {
+    const items = [];
+    const totalPrimer = computeTotalWallLivingPrimerSqm(sm);
+    if (totalPrimer > 0) pushWallAcrylicPrimerLine(items, totalPrimer);
+
+    const plasterAreaSqmTotal = getWallPlasterAreaSqm(sm.additionalWalls);
+    if (plasterAreaSqmTotal > 0) {
+        items.push({
+            name: "Штукатурка стен",
+            rate: 550,
+            quantity: plasterAreaSqmTotal.toFixed(1),
+            unit: "кв.м.",
+            total: (plasterAreaSqmTotal * 550).toFixed(1)
+        });
+    }
+
+    (sm.additionalWalls || []).forEach(function (puttyMat) {
+        if (!isWallPuttySpravType(puttyMat.type)) return;
+        const puttyAreaSq = parseFloat(String(puttyMat.area || '').replace(' м²', '').replace(',', '.')) || 0;
+        pushWallPuttyEstimateItem(items, puttyAreaSq, puttyMat.type);
+    });
+    const totalSanding = computeTotalWallLivingSandingSqm(sm);
+    if (totalSanding > 0) pushWallSandingLine(items, totalSanding);
+
+    getLivingWallFinishVariants(sm).forEach(function (wv) {
+        const row = wallFinishWorkRow(wv.type);
+        const a = parseFloat(String(wv.area || '').replace(' м²', '').replace(',', '.')) || 0;
+        if (row.wallWorkRate > 0 && a > 0) {
+            items.push({
+                name: row.wallWorkName,
+                rate: row.wallWorkRate,
+                quantity: a.toFixed(1),
+                unit: "кв.м.",
+                total: (a * row.wallWorkRate).toFixed(1)
+            });
+            if (wv.type === 'tile' || wv.type === 'porcelain') {
+                pushTileCementGrout(items, a);
+            }
+        }
+    });
+
+    (sm.additionalWalls || []).forEach(function (additionalMaterial) {
+        if (additionalMaterial.type === 'plaster' || isWallPuttySpravType(additionalMaterial.type)) return;
+        if (additionalMaterial.type !== 'ceramicGraniteApron') return;
+        const additionalArea = parseFloat(String(additionalMaterial.area || '').replace(' м²', '').replace(',', '.')) || 0;
+        if (additionalArea <= 0) return;
+        items.push({
+            name: "Укладка фартука из керамогранита",
+            rate: ESTIMATE_RATE_TILE_PORCELAIN_SQM,
+            quantity: additionalArea.toFixed(1),
+            unit: "кв.м.",
+            total: (additionalArea * ESTIMATE_RATE_TILE_PORCELAIN_SQM).toFixed(1)
+        });
+        pushTileCementGrout(items, additionalArea);
+    });
+
+    return items;
+}
+
+function pushFloorPrimerLine(items, totalAreaSq) {
+    const sq = parseFloat(totalAreaSq) || 0;
+    if (sq <= 0) return;
+    items.push({
+        name: 'Грунтовка пола',
+        rate: 60,
+        quantity: sq.toFixed(1),
+        unit: 'кв.м.',
+        total: (sq * 60).toFixed(1)
+    });
+}
+
+function pushBathroomWallPrimerLine(items, totalAreaSq) {
+    const sq = parseFloat(totalAreaSq) || 0;
+    if (sq <= 0) return;
+    items.push({
+        name: 'Грунтовка стен',
+        rate: 60,
+        quantity: sq.toFixed(1),
+        unit: 'кв.м.',
+        total: (sq * 60).toFixed(1)
+    });
+}
+
+function isLivingAdditionalFloor(m) {
+    return !m || String(m.name || '').indexOf('санузел') < 0;
+}
+
+function getLivingFloorFinishVariants(sm) {
+    if (!sm) return [];
+    if (sm.floorsVariants && sm.floorsVariants.length) return sm.floorsVariants;
+    if (sm.floors) return [sm.floors];
+    return [];
+}
+
+function getLivingAdditionalFloors(sm) {
+    return (sm.additionalFloors || []).filter(isLivingAdditionalFloor);
+}
+
+function computeTotalLivingFloorPrimerSqm(sm) {
+    if (!sm) return 0;
+    let total = 0;
+    getLivingFloorFinishVariants(sm).forEach(function (f) {
+        const sq = parseAreaStringToSqm(f.area);
+        if (sq != null && sq > 0) total += sq;
+    });
+    getLivingAdditionalFloors(sm).forEach(function (m) {
+        if (m.type === 'screed' || m.type === 'selfLeveling') {
+            const sq = parseAreaStringToSqm(m.area);
+            if (sq != null && sq > 0) total += sq;
+        }
+    });
+    return total;
+}
+
+function floorFinishWorkRow(type) {
+    let floorWorkRate = 0;
+    let floorWorkName = "";
+    switch (type) {
+        case 'laminate':
+            floorWorkRate = 950;
+            floorWorkName = "Укладка ламината";
+            break;
+        case 'pvc':
+            floorWorkRate = 950;
+            floorWorkName = "Укладка ПВХ плитки";
+            break;
+        case 'tile':
+            floorWorkRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
+            floorWorkName = "Укладка керамической плитки";
+            break;
+        case 'porcelain':
+            floorWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
+            floorWorkName = "Укладка керамогранита";
+            break;
+        case 'mosaic':
+            floorWorkRate = 3000;
+            floorWorkName = "Укладка мозаики";
+            break;
+        case 'parquet':
+            floorWorkRate = 1200;
+            floorWorkName = "Укладка паркета";
+            break;
+        case 'linoleum':
+            floorWorkRate = 450;
+            floorWorkName = "Укладка линолеума";
+            break;
+        case 'carpet':
+            floorWorkRate = 950;
+            floorWorkName = "Укладка ковролина";
+            break;
+        default:
+            floorWorkRate = 0;
+            floorWorkName = "";
+            break;
+    }
+    return { floorWorkRate: floorWorkRate, floorWorkName: floorWorkName };
+}
+
+function hasLivingFloorEstimateWorks(sm) {
+    if (!sm) return false;
+    if (getLivingFloorFinishVariants(sm).length) return true;
+    return getLivingAdditionalFloors(sm).some(function (m) {
+        return m.type === 'screed' || m.type === 'selfLeveling' || m.type === 'skirting';
+    });
+}
+
+function buildLivingFloorsEstimateItems(sm) {
+    const items = [];
+    const totalPrimer = computeTotalLivingFloorPrimerSqm(sm);
+    if (totalPrimer > 0) pushFloorPrimerLine(items, totalPrimer);
+
+    getLivingFloorFinishVariants(sm).forEach(function (f) {
+        const row = floorFinishWorkRow(f.type);
+        const a = parseAreaStringToSqm(f.area) || 0;
+        if (row.floorWorkRate > 0 && a > 0) {
+            items.push({
+                name: row.floorWorkName,
+                rate: row.floorWorkRate,
+                quantity: a.toFixed(1),
+                unit: "кв.м.",
+                total: (a * row.floorWorkRate).toFixed(1)
+            });
+            if (f.type === 'tile' || f.type === 'porcelain' || f.type === 'mosaic') {
+                pushTileCementGrout(items, a);
+            }
+        }
+    });
+
+    return items;
+}
+
+function getBathroomFloorFinishVariants(sm) {
+    if (!sm) return [];
+    if (sm.bathroomFloorsVariants && sm.bathroomFloorsVariants.length) return sm.bathroomFloorsVariants;
+    if (sm.bathroomFloors) return [sm.bathroomFloors];
+    return [];
+}
+
+function computeTotalBathroomFloorPrimerSqm(sm) {
+    if (!sm) return 0;
+    let total = 0;
+    getBathroomFloorFinishVariants(sm).forEach(function (f) {
+        const sq = parseAreaStringToSqm(f.area);
+        if (sq != null && sq > 0) total += sq;
+    });
+    (sm.additionalBathroomFloors || []).forEach(function (m) {
+        if (m.type === 'screed' || m.type === 'selfLeveling') {
+            const sq = parseAreaStringToSqm(m.area);
+            if (sq != null && sq > 0) total += sq;
+        }
+    });
+    return total;
+}
+
+function bathroomFloorFinishWorkRow(type) {
+    let floorTileRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
+    let floorTileName = "Укладка на пол стандартной плитки";
+    if (type === 'mosaic') {
+        floorTileRate = 3000;
+        floorTileName = "Укладка мозаики на пол";
+    } else if (type === 'porcelain') {
+        floorTileRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
+        floorTileName = "Укладка керамогранита на пол";
+    }
+    return { floorTileRate: floorTileRate, floorTileName: floorTileName };
+}
+
+function hasBathroomFloorFinishWorks(sm) {
+    return getBathroomFloorFinishVariants(sm).length > 0
+        || (sm.additionalBathroomFloors || []).some(function (m) {
+            return m.type === 'screed' || m.type === 'selfLeveling';
+        });
+}
+
+function buildBathroomFloorEstimateItems(sm) {
+    const items = [];
+    const totalPrimer = computeTotalBathroomFloorPrimerSqm(sm);
+    if (totalPrimer > 0) pushFloorPrimerLine(items, totalPrimer);
+
+    getBathroomFloorFinishVariants(sm).forEach(function (f) {
+        const row = bathroomFloorFinishWorkRow(f.type);
+        const a = parseAreaStringToSqm(f.area) || 0;
+        if (row.floorTileRate > 0 && a > 0) {
+            items.push({
+                name: row.floorTileName,
+                rate: row.floorTileRate,
+                quantity: a.toFixed(1),
+                unit: "кв.м.",
+                total: (a * row.floorTileRate).toFixed(1)
+            });
+            if (f.type === 'porcelain' || f.type === 'ceramic' || f.type === 'tile' || f.type === 'mosaic') {
+                pushTileCementGrout(items, a);
+            }
+        }
+    });
+
+    (sm.additionalBathroomFloors || []).forEach(function (additionalMaterial) {
+        let additionalWorkRate = 0;
+        let additionalWorkName = "";
+        switch (additionalMaterial.type) {
+            case 'screed':
+                additionalWorkRate = 950;
+                additionalWorkName = "Стяжка под плитку";
+                break;
+            case 'selfLeveling':
+                additionalWorkRate = selfLevelingWorkRatePerSqm(additionalMaterial.thicknessMm);
+                additionalWorkName = "Наливной пол";
+                break;
+            default:
+                additionalWorkRate = 0;
+                additionalWorkName = "";
+                break;
+        }
+        if (additionalWorkRate <= 0) return;
+        const additionalArea = parseAreaStringToSqm(additionalMaterial.area) || 0;
+        if (additionalArea <= 0) return;
+        items.push({
+            name: additionalWorkName,
+            rate: additionalWorkRate,
+            quantity: additionalArea.toFixed(1),
+            unit: "кв.м.",
+            total: (additionalArea * additionalWorkRate).toFixed(1)
+        });
+    });
+
+    return items;
+}
+
+function getBathroomWallTileVariants(sm) {
+    if (!sm) return [];
+    if (sm.wallTileVariants && sm.wallTileVariants.length) return sm.wallTileVariants;
+    if (sm.wallTile) return [sm.wallTile];
+    return [];
+}
+
+function computeTotalBathroomWallPrimerSqm(sm) {
+    if (!sm) return 0;
+    let total = 0;
+    (sm.additionalWallTile || []).forEach(function (m) {
+        if (m.type === 'plaster') {
+            const sq = parseAreaStringToSqm(m.area);
+            if (sq != null && sq > 0) total += sq;
+        }
+    });
+    getBathroomWallTileVariants(sm).forEach(function (wt) {
+        const sq = parseAreaStringToSqm(wt.area);
+        if (sq != null && sq > 0) total += sq;
+    });
+    return total;
+}
+
+function bathroomWallTileWorkRow(type) {
+    let wallTileRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
+    let wallTileName = "Облицовка стен стандартной плиткой";
+    if (type === 'mosaic') {
+        wallTileRate = 3000;
+        wallTileName = "Облицовка стен мозаикой";
+    } else if (type === 'porcelain') {
+        wallTileRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
+        wallTileName = "Облицовка стен керамогранитом";
+    }
+    return { wallTileRate: wallTileRate, wallTileName: wallTileName };
+}
+
+function hasBathroomWallEstimateWorks(sm) {
+    if (!sm) return false;
+    if (getBathroomWallTileVariants(sm).length) return true;
+    return (sm.additionalWallTile || []).some(function (m) {
+        return m.type === 'plaster'
+            || (m.type === 'box' && (parseInt(String(m.quantity), 10) || 0) > 0)
+            || m.type === 'tile45Cut';
+    });
+}
+
+function buildBathroomWallsEstimateItems(sm) {
+    const items = [];
+    const hasWallTilePlaster = (sm.additionalWallTile || []).some(function (m) { return m.type === 'plaster'; });
+    const totalPrimer = computeTotalBathroomWallPrimerSqm(sm);
+    if (totalPrimer > 0) pushBathroomWallPrimerLine(items, totalPrimer);
+
+    if (hasWallTilePlaster) {
+        const plWt = (sm.additionalWallTile || []).find(function (m) { return m.type === 'plaster'; });
+        const plasterAreaSu = plWt && plWt.area ? (parseAreaStringToSqm(plWt.area) || 0) : 0;
+        if (plasterAreaSu > 0) {
+            items.push({
+                name: "Штукатурка стен под плитку",
+                rate: 550,
+                quantity: plasterAreaSu.toFixed(1),
+                unit: "кв.м.",
+                total: (plasterAreaSu * 550).toFixed(1)
+            });
+        }
+    }
+
+    const wallTileVariants = getBathroomWallTileVariants(sm);
+    if (wallTileVariants.length > 0) {
+        const hasBathtub = sm.plumbing && sm.plumbing.some(function (s) { return s.type === 'bathtub'; });
+        if (hasBathtub || hasPorcelainTrayScope(sm)) {
+            items.push({
+                name: "Гидроизоляция стен",
+                rate: 600,
+                quantity: 8,
+                unit: "кв.м.",
+                total: (8 * 600).toFixed(1)
+            });
+        }
+
+        wallTileVariants.forEach(function (wt) {
+            const a = parseAreaStringToSqm(wt.area) || 0;
+            if (a <= 0) return;
+            const row = bathroomWallTileWorkRow(wt.type);
+            items.push({
+                name: row.wallTileName,
+                rate: row.wallTileRate,
+                quantity: a.toFixed(1),
+                unit: "кв.м.",
+                total: (a * row.wallTileRate).toFixed(1)
+            });
+            if (wt.type === 'porcelain' || wt.type === 'ceramic' || wt.type === 'tile' || wt.type === 'mosaic') {
+                pushTileCementGrout(items, a);
+            }
+        });
+    }
+
+    (sm.additionalWallTile || []).forEach(function (additionalMaterial) {
+        if (additionalMaterial.type === 'plaster') return;
+        if (additionalMaterial.type === 'box') {
+            const boxQty = additionalMaterial.quantity || 0;
+            if (boxQty > 0) {
+                items.push({
+                    name: "Устройство короба",
+                    rate: 1900,
+                    quantity: boxQty,
+                    unit: "шт.",
+                    total: (boxQty * 1900).toFixed(1)
+                });
+            }
+        } else if (additionalMaterial.type === 'tile45Cut') {
+            const tile45Qty = parseFloat(additionalMaterial.quantity) || 0;
+            if (tile45Qty > 0) {
+                items.push({
+                    name: "Запил плитки под 45°",
+                    rate: 1200,
+                    quantity: tile45Qty,
+                    unit: "п.м.",
+                    total: (tile45Qty * 1200).toFixed(1)
+                });
+            }
+        }
+    });
+
+    const hasInstallation = sm.plumbing && sm.plumbing.some(function (s) { return s.type === 'installation'; });
+    if (hasInstallation) {
+        const installationCount = sm.plumbing.reduce(function (sum, s) {
+            return s.type === 'installation' ? sum + (parseInt(s.quantity, 10) || 1) : sum;
+        }, 0);
+        items.push({
+            name: "Устройство Коробов из гипсокартона(инсталяция)",
+            rate: 1900,
+            quantity: installationCount,
+            unit: "шт.",
+            total: (installationCount * 1900).toFixed(1)
+        });
+    }
+
+    return items;
 }
 
 function wallFinishUsesOnePrimerLayer(type) {
@@ -207,11 +717,10 @@ function wallLivingPrimerLayerCount(hasPlaster, hasPutty, hasFinish) {
     return layers;
 }
 
-/** Одна строка грунтовки жилых стен (как на потолке). */
-function pushWallLivingFinishPrimer(items, areaSq, hasPlaster, hasPutty, hasFinish) {
-    const layers = wallLivingPrimerLayerCount(hasPlaster, hasPutty, hasFinish);
+/** @deprecated — используйте computeTotalWallLivingPrimerSqm + pushWallAcrylicPrimerLine */
+function pushWallLivingFinishPrimer(items, areaSq) {
     const sq = parseFloat(areaSq) || 0;
-    if (layers > 0 && sq > 0) pushWallAcrylicPrimerLine(items, sq, layers);
+    if (sq > 0) pushWallAcrylicPrimerLine(items, sq);
 }
 
 function wallLivingPrimerAreaSqm(wallArea, livingPrimerArea, plasterArea, puttyArea, hasFinish) {
@@ -225,7 +734,23 @@ function wallLivingPrimerAreaSqm(wallArea, livingPrimerArea, plasterArea, puttyA
     return Math.max(wallArea, livingPrimerArea, plasterArea, puttyArea);
 }
 
-function pushWallPuttyAndSandingEstimateItems(items, areaSq, puttyType) {
+function computeTotalWallLivingSandingSqm(sm) {
+    return getWallPuttyAreaSqm(sm && sm.additionalWalls);
+}
+
+function pushWallSandingLine(items, totalAreaSq) {
+    const sq = parseFloat(totalAreaSq) || 0;
+    if (sq <= 0) return;
+    items.push({
+        name: 'Шлифовка стен',
+        rate: 90,
+        quantity: sq.toFixed(1),
+        unit: 'кв.м.',
+        total: (sq * 90).toFixed(1)
+    });
+}
+
+function pushWallPuttyEstimateItem(items, areaSq, puttyType) {
     const sq = parseFloat(areaSq) || 0;
     if (sq <= 0 || !isWallPuttySpravType(puttyType)) return;
     const layers = wallPuttyLayersForType(puttyType);
@@ -236,13 +761,12 @@ function pushWallPuttyAndSandingEstimateItems(items, areaSq, puttyType) {
         unit: 'кв.м.',
         total: (sq * layers * 180).toFixed(1)
     });
-    items.push({
-        name: 'Шлифовка стен',
-        rate: 90,
-        quantity: sq.toFixed(1),
-        unit: 'кв.м.',
-        total: (sq * 90).toFixed(1)
-    });
+}
+
+/** @deprecated — используйте pushWallPuttyEstimateItem + pushWallSandingLine с суммарной площадью */
+function pushWallPuttyAndSandingEstimateItems(items, areaSq, puttyType) {
+    pushWallPuttyEstimateItem(items, areaSq, puttyType);
+    pushWallSandingLine(items, areaSq);
 }
 
 /** Кабели проводки по потолку (на отрез, этап 3). */
@@ -251,6 +775,9 @@ const CEILING_WIRING_CABLE_SKUS = ['81933629', '81933623', '81933630'];
 function clearSpravSelectedMaterials() {
     selectedMaterials.walls = null;
     delete selectedMaterials.wallsVariants;
+    delete selectedMaterials.floorsVariants;
+    delete selectedMaterials.bathroomFloorsVariants;
+    delete selectedMaterials.wallTileVariants;
     delete selectedMaterials.ceilingCableM;
     selectedMaterials.floors = null;
     selectedMaterials.bathroomFloors = null;
@@ -319,6 +846,49 @@ function isCeramicOrPorcelainTileType(t) {
     return t === 'tile' || t === 'porcelain' || t === 'ceramic';
 }
 
+function isTileLayingType(t) {
+    return t === 'tile' || t === 'porcelain' || t === 'ceramic' || t === 'mosaic';
+}
+
+/** Укладка плитки/керамогранита/мозаики или фартук — без штукатурки под плитку, короба, запила 45°. */
+function hasTileWorkScope(sm) {
+    if (!sm) return false;
+
+    function variantsHaveTile(arr) {
+        return arr && arr.some(function (m) { return m && isTileLayingType(m.type); });
+    }
+
+    if (variantsHaveTile(sm.floorsVariants)) return true;
+    if (sm.floors && isTileLayingType(sm.floors.type)) return true;
+
+    if (getBathroomFloorFinishVariants(sm).some(function (f) { return f && isTileLayingType(f.type); })) return true;
+
+    if (getBathroomWallTileVariants(sm).some(function (w) { return w && isTileLayingType(w.type); })) return true;
+
+    if (variantsHaveTile(sm.wallsVariants)) return true;
+    if (sm.walls && isTileLayingType(sm.walls.type)) return true;
+
+    if ((sm.additionalWalls || []).some(function (m) { return m && m.type === 'ceramicGraniteApron'; })) return true;
+
+    return false;
+}
+
+/** Сумма м² по variants с укладкой плитки; если площади не заданы — fallbackSqm при наличии таких variants. */
+function sumTileLayingAreaFromVariants(variants, fallbackSqm) {
+    if (!variants || !variants.length) return 0;
+    let total = 0;
+    let hasTile = false;
+    variants.forEach(function (v) {
+        if (!v || !isTileLayingType(v.type)) return;
+        hasTile = true;
+        const sq = v.area ? parseAreaStringToSqm(v.area) : null;
+        if (sq != null && sq > 0) total += sq;
+    });
+    if (!hasTile) return 0;
+    if (total > 0) return total;
+    return fallbackSqm > 0 ? fallbackSqm : 0;
+}
+
 /** Площадь керамической плитки и керамогранита (без мозаики) — жилые стены/пол, санузел, фартук. */
 function ceramicPorcelainTileAreaSqm(sm, calc) {
     if (!sm) return 0;
@@ -364,6 +934,145 @@ function ceramicPorcelainTileAreaSqm(sm, calc) {
 function tileMusorBagsFromAreaSqm(sqm) {
     if (!(sqm > 0)) return 0;
     return Math.ceil(sqm / 5);
+}
+
+/** Мешки 17968499: max(1, ⌈S / sqmPerBag⌉). */
+function musorBagsMinOnePerSqm(sqm, sqmPerBag) {
+    if (!(sqm > 0) || !(sqmPerBag > 0)) return 0;
+    return Math.max(1, Math.ceil(sqm / sqmPerBag));
+}
+
+function additionalFloorItemSqm(m) {
+    if (!m) return 0;
+    const sq = m.area ? parseAreaStringToSqm(m.area) : null;
+    if (sq != null && sq > 0) return sq;
+    const n = parseFloat(String(m.area || '').replace(' м²', '').replace(',', '.'));
+    return !isNaN(n) && n > 0 ? n : 0;
+}
+
+/** Мешки под мусор: штукатурка/стяжка — max(1, ⌈S/10⌉); наливной — max(1, ⌈S/20⌉); шпаклёвка — max(1, ⌈S/100⌉). */
+function computePlasterScreedSelfLevelMusorBags(sm) {
+    if (!sm) return 0;
+    let bags = 0;
+    (sm.additionalWalls || []).forEach(function (m) {
+        if (!m || m.type !== 'plaster') return;
+        const sq = additionalFloorItemSqm(m);
+        if (sq > 0) bags += musorBagsMinOnePerSqm(sq, 10);
+    });
+    (sm.additionalWallTile || []).forEach(function (m) {
+        if (!m || m.type !== 'plaster') return;
+        const sq = additionalFloorItemSqm(m);
+        if (sq > 0) bags += musorBagsMinOnePerSqm(sq, 10);
+    });
+    (sm.ceilings || []).forEach(function (c) {
+        if (!c || c.type !== 'plasterCeiling') return;
+        const sq = additionalFloorItemSqm(c);
+        if (sq > 0) bags += musorBagsMinOnePerSqm(sq, 10);
+    });
+    (sm.additionalFloors || []).forEach(function (m) {
+        if (!m) return;
+        const sq = additionalFloorItemSqm(m);
+        if (sq <= 0) return;
+        if (m.type === 'screed') bags += musorBagsMinOnePerSqm(sq, 10);
+        if (m.type === 'selfLeveling') bags += musorBagsMinOnePerSqm(sq, 20);
+    });
+    (sm.additionalBathroomFloors || []).forEach(function (m) {
+        if (!m) return;
+        const sq = additionalFloorItemSqm(m);
+        if (sq <= 0) return;
+        if (m.type === 'screed') bags += musorBagsMinOnePerSqm(sq, 10);
+        if (m.type === 'selfLeveling') bags += musorBagsMinOnePerSqm(sq, 20);
+    });
+    let puttySqm = getWallPuttyAreaSqm(sm.additionalWalls);
+    if (puttySqm <= 0 && sm.wallPuttyAreaM2 > 0) puttySqm = sm.wallPuttyAreaM2;
+    (sm.ceilings || []).forEach(function (c) {
+        if (!c || c.type !== 'puttyCeiling') return;
+        puttySqm += additionalFloorItemSqm(c);
+    });
+    if (puttySqm > 0) bags += musorBagsMinOnePerSqm(puttySqm, 100);
+    return bags;
+}
+
+/** Поддон из керамогранита: bf-tray-porcelain или plumb-tray. */
+function hasPorcelainTrayScope(sm) {
+    if (!sm) return false;
+    if (sm.bathroomPorcelainTrayEnabled) return true;
+    return (sm.plumbing || []).some(function (s) { return s && s.type === 'tray'; });
+}
+
+/** Мешки 17968499: поддон из керамогранита — 1 шт. при выборе. */
+function computePorcelainTrayMusorBags(sm) {
+    return hasPorcelainTrayScope(sm) ? 1 : 0;
+}
+
+/** Мешки 17968499 при укладке жилых полов: ламинат/паркет/ПВХ — max(1, ⌈S/10⌉); линолеум/ковролин — max(1, ⌈S/20⌉). */
+function livingFloorMusorBagsFromSqm(floorType, sqm) {
+    if (!(sqm > 0) || !floorType) return 0;
+    if (floorType === 'laminate' || floorType === 'parquet' || floorType === 'pvc') {
+        return Math.max(1, Math.ceil(sqm / 10));
+    }
+    if (floorType === 'linoleum' || floorType === 'carpet') {
+        return Math.max(1, Math.ceil(sqm / 20));
+    }
+    return 0;
+}
+
+function livingFloorVariantSqm(f, laminateFallback) {
+    if (!f) return 0;
+    const sq = f.area ? parseAreaStringToSqm(f.area) : null;
+    if (sq != null && sq > 0) return sq;
+    return laminateFallback > 0 ? laminateFallback : 0;
+}
+
+/** Площадь м² доп. позиции пола (стяжка, наливной); плинтус — 0. */
+function livingAdditionalFloorAreaSqm(m) {
+    if (!m || m.type === 'skirting') return 0;
+    const sq = m.area ? parseAreaStringToSqm(m.area) : null;
+    if (sq != null && sq > 0) return sq;
+    const n = parseFloat(String(m.area || '').replace(' м²', '').replace(',', '.'));
+    return !isNaN(n) && n > 0 ? n : 0;
+}
+
+/** Этап 8–9: лезвия, подложка, клей — по каждому выбранному жилому покрытию (не только floorsVariants[0]). */
+function addLivingFloorCoveringBasketItems(add, sm, laminateFallback) {
+    if (!sm || typeof add !== 'function') return;
+    let carpetPvcConsumableAdded = false;
+    getLivingFloorFinishVariants(sm).forEach(function (f) {
+        if (!f || !f.type || isTileLayingType(f.type)) return;
+        const sq = livingFloorVariantSqm(f, laminateFallback);
+        if (!(sq > 0)) return;
+        if (f.type === 'laminate' || f.type === 'parquet' || f.type === 'carpet' || f.type === 'pvc' || f.type === 'linoleum') {
+            add(8, 82285188, sq / 50);
+        }
+        if (f.type === 'laminate' || f.type === 'parquet') {
+            add(9, 89421413, sq / 5.04);
+        } else if (f.type === 'carpet' || f.type === 'pvc') {
+            add(9, 17750553, sq / 35);
+            if (!carpetPvcConsumableAdded) {
+                add(9, 15087997, 1);
+                carpetPvcConsumableAdded = true;
+            }
+        }
+    });
+}
+
+/** Сумма мешков 17968499 (шт.) по выбранным жилым напольным покрытиям (не плитка). */
+function computeLivingFloorFinishMusorBags(sm, calc) {
+    if (!sm) return 0;
+    const lamFallback = (calc && calc.materials && calc.materials.laminate) || 0;
+    let bags = 0;
+    const variants = getLivingFloorFinishVariants(sm);
+    if (variants.length) {
+        variants.forEach(function (f) {
+            if (!f || !f.type) return;
+            const sq = livingFloorVariantSqm(f, lamFallback);
+            bags += livingFloorMusorBagsFromSqm(f.type, sq);
+        });
+    } else if (sm.floors && sm.floors.type) {
+        const sq = livingFloorVariantSqm(sm.floors, lamFallback);
+        bags += livingFloorMusorBagsFromSqm(sm.floors.type, sq);
+    }
+    return bags;
 }
 
 /** Мешки 17968499 при демонтаже (шт.): линолеум — 5/10 м²; обои/краска — ⌈S/10⌉; стена/пол — max(1, ⌈S/6⌉)×10. */
@@ -420,6 +1129,9 @@ function computeMusorBagCount(sm, calc) {
         if (gSq > 0) bags += Math.ceil(gSq / 30) * MUSOR_BAGS_PER_PACK;
     }
     bags += tileMusorBagsFromAreaSqm(ceramicPorcelainTileAreaSqm(sm, calc));
+    bags += computeLivingFloorFinishMusorBags(sm, calc);
+    bags += computePlasterScreedSelfLevelMusorBags(sm);
+    bags += computePorcelainTrayMusorBags(sm);
     if (sm.ceilings && sm.ceilings.length) {
         sm.ceilings.forEach(function (c) {
             if (!c || c.type !== 'armstrong' || !c.area) return;
@@ -517,6 +1229,17 @@ function formatMaterialAreaKvmLabel(name, areaStr) {
     return name + (areaKvm ? ' ' + areaKvm + ' кв' : '');
 }
 
+/** В «Выбранных материалах» — только закупаемые позиции; монтаж/штробление/прокладка — только в смете. */
+const ELECTRICAL_LABOR_TYPES_IN_MATERIALS_LIST = new Set([
+    'junctionBoxes',
+    'outletChasing',
+    'outletBoxes',
+    'electricalChasing',
+    'wireLaying',
+    'ceilingWiring',
+    'openCableLaying'
+]);
+
 function buildMaterialsListHtml() {
         
         
@@ -524,7 +1247,7 @@ function buildMaterialsListHtml() {
         let html = '<div class="materials-category-list">';
         
         if (selectedMaterials.walls) {
-            const wv = selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length > 1
+            const wv = selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length
                 ? selectedMaterials.wallsVariants
                 : null;
             const title = 'Стены';
@@ -583,15 +1306,20 @@ function buildMaterialsListHtml() {
             html += `<div class="material-category-card">${card}</div>`;
         }
         
-        if (selectedMaterials.floors) {
+        if (selectedMaterials.floors || (selectedMaterials.floorsVariants && selectedMaterials.floorsVariants.length)) {
             const title = 'Полы';
-            const floorHref = getMaterialLink('floors', selectedMaterials.floors.type);
+            const fv = selectedMaterials.floorsVariants && selectedMaterials.floorsVariants.length
+                ? selectedMaterials.floorsVariants
+                : (selectedMaterials.floors ? [selectedMaterials.floors] : []);
             const detailParts = [];
-            const floorLabel = formatMaterialAreaKvmLabel(selectedMaterials.floors.name, selectedMaterials.floors.area);
-            if (floorLabel) {
-                detailParts.push(buildMaterialDetailLinkHtml(floorHref, floorLabel));
-            }
-            if (isCeramicOrPorcelainTileType(selectedMaterials.floors.type)) {
+            fv.forEach(function (x) {
+                if (x.name || x.area) {
+                    const href = getMaterialLink('floors', x.type);
+                    const label = formatMaterialAreaKvmLabel(x.name, x.area);
+                    detailParts.push(buildMaterialDetailLinkHtml(href, label));
+                }
+            });
+            if (fv.some(function (x) { return isCeramicOrPorcelainTileType(x.type); })) {
                 detailParts.push(buildTileGroutDetailLinkHtml());
             }
             (selectedMaterials.additionalFloors || []).forEach(m => {
@@ -618,15 +1346,20 @@ function buildMaterialsListHtml() {
             html += `<div class="material-category-card">${card}</div>`;
         }
         
-        if (selectedMaterials.wallTile) {
+        if (selectedMaterials.wallTile || (selectedMaterials.wallTileVariants && selectedMaterials.wallTileVariants.length)) {
             const title = 'Санузел стены';
-            const tileHref = getMaterialLink('wallTile', selectedMaterials.wallTile.type);
+            const wtv = selectedMaterials.wallTileVariants && selectedMaterials.wallTileVariants.length
+                ? selectedMaterials.wallTileVariants
+                : (selectedMaterials.wallTile ? [selectedMaterials.wallTile] : []);
             const detailParts = [];
-            const tileLabel = formatMaterialAreaKvmLabel(selectedMaterials.wallTile.name, selectedMaterials.wallTile.area);
-            if (tileLabel) {
-                detailParts.push(buildMaterialDetailLinkHtml(tileHref, tileLabel));
-            }
-            if (isCeramicOrPorcelainTileType(selectedMaterials.wallTile.type)) {
+            wtv.forEach(function (x) {
+                if (x.name || x.area) {
+                    const href = getMaterialLink('wallTile', x.type);
+                    const label = formatMaterialAreaKvmLabel(x.name, x.area);
+                    detailParts.push(buildMaterialDetailLinkHtml(href, label));
+                }
+            });
+            if (wtv.some(function (x) { return isCeramicOrPorcelainTileType(x.type); })) {
                 detailParts.push(buildTileGroutDetailLinkHtml());
             }
             const details = detailParts.length ? detailParts.join('<br>') : '';
@@ -634,15 +1367,20 @@ function buildMaterialsListHtml() {
             html += `<div class="material-category-card">${card}</div>`;
         }
         
-        if (selectedMaterials.bathroomFloors) {
+        if (selectedMaterials.bathroomFloors || (selectedMaterials.bathroomFloorsVariants && selectedMaterials.bathroomFloorsVariants.length)) {
             const title = 'Санузел пол';
-            const floorHref = getMaterialLink('bathroomFloor', selectedMaterials.bathroomFloors.type);
+            const bfv = selectedMaterials.bathroomFloorsVariants && selectedMaterials.bathroomFloorsVariants.length
+                ? selectedMaterials.bathroomFloorsVariants
+                : (selectedMaterials.bathroomFloors ? [selectedMaterials.bathroomFloors] : []);
             const detailParts = [];
-            const floorLabel = formatMaterialAreaKvmLabel(selectedMaterials.bathroomFloors.name, selectedMaterials.bathroomFloors.area);
-            if (floorLabel) {
-                detailParts.push(buildMaterialDetailLinkHtml(floorHref, floorLabel));
-            }
-            if (isCeramicOrPorcelainTileType(selectedMaterials.bathroomFloors.type)) {
+            bfv.forEach(function (x) {
+                if (x.name || x.area) {
+                    const href = getMaterialLink('bathroomFloor', x.type);
+                    const label = formatMaterialAreaKvmLabel(x.name, x.area);
+                    detailParts.push(buildMaterialDetailLinkHtml(href, label));
+                }
+            });
+            if (bfv.some(function (x) { return isCeramicOrPorcelainTileType(x.type); })) {
                 detailParts.push(buildTileGroutDetailLinkHtml());
             }
             const details = detailParts.length ? detailParts.join('<br>') : '';
@@ -651,13 +1389,18 @@ function buildMaterialsListHtml() {
         }
         
         if (selectedMaterials.electrical && selectedMaterials.electrical.length > 0) {
-            const linksParts = selectedMaterials.electrical.map(s => {
-                const href = getMaterialLink('electrical', s.type);
-                const q = (s.quantity && parseInt(s.quantity, 10)) ? ' (' + s.quantity + ')' : '';
-                return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer" class="material-detail-link">${s.name}${q}</a>` : `<span>${s.name}${q}</span>`;
+            const visibleElectrical = selectedMaterials.electrical.filter(function (s) {
+                return s && !ELECTRICAL_LABOR_TYPES_IN_MATERIALS_LIST.has(s.type);
             });
-            const card = `<div class="material-category-title">Электромонтаж</div><div class="material-category-details">${linksParts.join('<br>')}</div>`;
-            html += `<div class="material-category-card">${card}</div>`;
+            if (visibleElectrical.length > 0) {
+                const linksParts = visibleElectrical.map(function (s) {
+                    const href = getMaterialLink('electrical', s.type);
+                    const q = (s.quantity && parseInt(s.quantity, 10)) ? ' (' + s.quantity + ')' : '';
+                    return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer" class="material-detail-link">${s.name}${q}</a>` : `<span>${s.name}${q}</span>`;
+                });
+                const card = `<div class="material-category-title">Электромонтаж</div><div class="material-category-details">${linksParts.join('<br>')}</div>`;
+                html += `<div class="material-category-card">${card}</div>`;
+            }
         }
         
         if (selectedMaterials.stage4GeneralFix) {
@@ -690,6 +1433,95 @@ function buildMaterialsListHtml() {
         html += '</div>';
         return html;
     }
+
+function parseMaterialsLinksFromHtml(html) {
+    const sections = [];
+    if (!html || html.indexOf('material-category-card') < 0) return sections;
+    if (typeof DOMParser === 'undefined') return sections;
+    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    const root = doc.body.firstElementChild;
+    if (!root) return sections;
+    root.querySelectorAll('.material-category-card').forEach(function (card) {
+        const titleEl = card.querySelector('.material-category-title');
+        const titleText = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
+        const items = [];
+        const details = card.querySelector('.material-category-details');
+        if (details) {
+            details.querySelectorAll('a.material-detail-link').forEach(function (a) {
+                const label = a.textContent.replace(/\s+/g, ' ').trim();
+                const href = a.getAttribute('href') || '';
+                if (label) items.push({ label: label, href: href });
+            });
+            details.querySelectorAll(':scope > span').forEach(function (sp) {
+                const label = sp.textContent.replace(/\s+/g, ' ').trim();
+                if (label) items.push({ label: label, href: '' });
+            });
+            if (!items.length) {
+                const plain = details.textContent.replace(/\s+/g, ' ').trim();
+                if (plain) items.push({ label: plain, href: '' });
+            }
+        }
+        if (titleText || items.length) sections.push({ title: titleText, items: items });
+    });
+    return sections;
+}
+
+function exportMaterialsLinksToExcel(address) {
+    const sections = parseMaterialsLinksFromHtml(buildMaterialsListHtml());
+    if (!sections.length || !sections.some(function (s) { return s.items && s.items.length; })) {
+        return false;
+    }
+    const rawAddr = address != null ? String(address).trim() : '';
+    const docTitle = rawAddr ? ('Материалы и услуги — ' + rawAddr) : 'Материалы и услуги';
+    const downloadFilename = excelExportFilenameStem('materialy', rawAddr);
+    let htmlContent = `
+            <!DOCTYPE html>
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+                    th { background-color: #4472C4; color: white; font-weight: bold; }
+                    .category { background-color: #D9E2F3 !important; font-weight: bold; color: #2F5597; }
+                    a { color: #0563C1; text-decoration: underline; word-break: break-all; }
+                </style>
+            </head>
+            <body>
+                <h2 style="text-align: center; color: #2F5597;">${escapeHtmlText(docTitle)}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Раздел</th>
+                            <th style="width: 32%;">Позиция</th>
+                            <th style="width: 50%;">Ссылка</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+    sections.forEach(function (sec) {
+        htmlContent += `<tr class="category"><td colspan="3">${escapeHtmlText(sec.title || '')}</td></tr>`;
+        (sec.items || []).forEach(function (item) {
+            const linkCell = item.href
+                ? `<a href="${escapeHtmlText(item.href)}">${escapeHtmlText(item.href)}</a>`
+                : '';
+            htmlContent += '<tr>';
+            htmlContent += '<td></td>';
+            htmlContent += '<td>' + escapeHtmlText(item.label) + '</td>';
+            htmlContent += '<td>' + linkCell + '</td>';
+            htmlContent += '</tr>';
+        });
+    });
+    htmlContent += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+    downloadExcelHtmlFile(htmlContent, downloadFilename);
+    return true;
+}
+
         function applyCheckedSubtopics(keys, electricalPcs, demolitionSqm, lastCalculations, partitionSqm, perSubtopicSqm, lightingPcs, bathFloorPcs, plumbingPcs, perSubtopicThickness, skirtingOpts, windowsDoorsPcs) {
             if (!Array.isArray(keys)) keys = [];
             
@@ -838,12 +1670,7 @@ function buildMaterialsListHtml() {
                 }
             }
 
-            const wallPri = ['walls-tile-porcelain', 'walls-tile-ceramic', 'walls-panels', 'walls-gypsum', 'walls-decorative', 'walls-paint', 'walls-wallpaper'];
-            const wallKeysAll = [];
-            for (let i = 0; i < wallPri.length; i++) {
-                if (set.has(wallPri[i])) wallKeysAll.push(wallPri[i]);
-            }
-            let wallKey = wallKeysAll.length ? wallKeysAll[0] : null;
+            const wallFinishOrder = ['walls-tile-porcelain', 'walls-tile-ceramic', 'walls-panels', 'walls-gypsum', 'walls-decorative', 'walls-paint', 'walls-wallpaper'];
             const wallTypeMap = {
                 'walls-wallpaper': { type: 'wallpaper', name: 'Обои' },
                 'walls-paint': { type: 'paint', name: 'Покраска' },
@@ -853,18 +1680,22 @@ function buildMaterialsListHtml() {
                 'walls-tile-ceramic': { type: 'tile', name: 'Керамическая плитка' },
                 'walls-tile-porcelain': { type: 'porcelain', name: 'Керамогранит' }
             };
-            const bothLivingWallTiles = set.has('walls-tile-porcelain') && set.has('walls-tile-ceramic');
-            if (bothLivingWallTiles) {
-                const aPor = strSqm(qSqmSub('walls-tile-porcelain', wallSq));
-                const aCer = strSqm(qSqmSub('walls-tile-ceramic', wallSq));
-                selectedMaterials.wallsVariants = [
-                    { type: 'porcelain', name: 'Керамогранит', area: aPor },
-                    { type: 'tile', name: 'Керамическая плитка', area: aCer }
-                ];
-                selectedMaterials.walls = { type: 'porcelain', name: 'Керамогранит', area: aPor };
-            } else if (wallKey && wallTypeMap[wallKey]) {
-                const w = wallTypeMap[wallKey];
-                selectedMaterials.walls = { type: w.type, name: w.name, area: strSqm(qSqmSub(wallKey, wallSq)) };
+            selectedMaterials.wallsVariants = [];
+            for (let wi = 0; wi < wallFinishOrder.length; wi++) {
+                const wKey = wallFinishOrder[wi];
+                if (set.has(wKey) && wallTypeMap[wKey]) {
+                    const w = wallTypeMap[wKey];
+                    selectedMaterials.wallsVariants.push({
+                        type: w.type,
+                        name: w.name,
+                        area: strSqm(qSqmSub(wKey, wallSq))
+                    });
+                }
+            }
+            if (selectedMaterials.wallsVariants.length > 0) {
+                selectedMaterials.walls = selectedMaterials.wallsVariants[0];
+            } else {
+                selectedMaterials.walls = null;
             }
             if (set.has('walls-plaster')) {
                 selectedMaterials.additionalWalls.push(withLayerThickness({ type: 'plaster', name: 'Штукатурка стен', area: strSqm(qSqmSub('walls-plaster', wallSq)) }, 'walls-plaster'));
@@ -890,10 +1721,6 @@ function buildMaterialsListHtml() {
             }
 
             const floorOrder = ['floor-tile', 'floor-porcelain', 'floor-mosaic', 'floor-pvc', 'floor-laminate', 'floor-parquet', 'floor-carpet', 'floor-linoleum'];
-            let floorKey = null;
-            for (let i = 0; i < floorOrder.length; i++) {
-                if (set.has(floorOrder[i])) { floorKey = floorOrder[i]; break; }
-            }
             const floorTypeMap = {
                 'floor-laminate': { type: 'laminate', name: 'Ламинат' },
                 'floor-parquet': { type: 'parquet', name: 'Паркет' },
@@ -904,9 +1731,22 @@ function buildMaterialsListHtml() {
                 'floor-porcelain': { type: 'porcelain', name: 'Керамогранит' },
                 'floor-mosaic': { type: 'mosaic', name: 'Мозаика' }
             };
-            if (floorKey && floorTypeMap[floorKey]) {
-                const f = floorTypeMap[floorKey];
-                selectedMaterials.floors = { type: f.type, name: f.name, area: strSqm(qSqmSub(floorKey, lamSq)) };
+            selectedMaterials.floorsVariants = [];
+            for (let fi = 0; fi < floorOrder.length; fi++) {
+                const fKey = floorOrder[fi];
+                if (set.has(fKey) && floorTypeMap[fKey]) {
+                    const f = floorTypeMap[fKey];
+                    selectedMaterials.floorsVariants.push({
+                        type: f.type,
+                        name: f.name,
+                        area: strSqm(qSqmSub(fKey, lamSq))
+                    });
+                }
+            }
+            if (selectedMaterials.floorsVariants.length > 0) {
+                selectedMaterials.floors = selectedMaterials.floorsVariants[0];
+            } else {
+                selectedMaterials.floors = null;
             }
             if (set.has('floor-skirting')) {
                 const skOpt = (skirtingOpts && typeof skirtingOpts === 'object') ? skirtingOpts : null;
@@ -935,14 +1775,32 @@ function buildMaterialsListHtml() {
                 selectedMaterials.additionalFloors.push(withLayerThickness({ type: 'selfLeveling', name: 'Наливной пол', area: strSqm(qSqmSub('floor-extra-self', lamSq)) }, 'floor-extra-self'));
             }
 
-            if (set.has('bf-tile-porcelain')) {
-                selectedMaterials.bathroomFloors = { type: 'porcelain', name: 'Керамогранит', area: strSqm(qSqmSub('bf-tile-porcelain', floorTileSq)) };
+            const bathFloorOrder = ['bf-tile-porcelain'];
+            const bathFloorTypeMap = {
+                'bf-tile-porcelain': { type: 'porcelain', name: 'Керамогранит' }
+            };
+            selectedMaterials.bathroomFloorsVariants = [];
+            for (let bfi = 0; bfi < bathFloorOrder.length; bfi++) {
+                const bfKey = bathFloorOrder[bfi];
+                if (set.has(bfKey) && bathFloorTypeMap[bfKey]) {
+                    const bf = bathFloorTypeMap[bfKey];
+                    selectedMaterials.bathroomFloorsVariants.push({
+                        type: bf.type,
+                        name: bf.name,
+                        area: strSqm(qSqmSub(bfKey, floorTileSq))
+                    });
+                }
+            }
+            if (selectedMaterials.bathroomFloorsVariants.length > 0) {
+                selectedMaterials.bathroomFloors = selectedMaterials.bathroomFloorsVariants[0];
+            } else {
+                selectedMaterials.bathroomFloors = null;
             }
             if (set.has('bf-extra-screed')) {
-                selectedMaterials.additionalFloors.push(withLayerThickness({ type: 'screed', name: 'Стяжка пола (санузел)', area: strSqm(qSqmSub('bf-extra-screed', floorTileSq)) }, 'bf-extra-screed'));
+                selectedMaterials.additionalBathroomFloors.push(withLayerThickness({ type: 'screed', name: 'Стяжка пола (санузел)', area: strSqm(qSqmSub('bf-extra-screed', floorTileSq)) }, 'bf-extra-screed'));
             }
             if (set.has('bf-extra-self')) {
-                selectedMaterials.additionalFloors.push(withLayerThickness({ type: 'selfLeveling', name: 'Наливной пол (санузел)', area: strSqm(qSqmSub('bf-extra-self', floorTileSq)) }, 'bf-extra-self'));
+                selectedMaterials.additionalBathroomFloors.push(withLayerThickness({ type: 'selfLeveling', name: 'Наливной пол (санузел)', area: strSqm(qSqmSub('bf-extra-self', floorTileSq)) }, 'bf-extra-self'));
             }
 
             if (set.has('bf-tray-porcelain')) {
@@ -952,17 +1810,39 @@ function buildMaterialsListHtml() {
                     const traySqm = parseFloat(String(rawTraySqm).replace(',', '.'));
                     if (!isNaN(traySqm) && traySqm > 0) selectedMaterials.bathroomPorcelainTraySqm = traySqm;
                 }
+                if (!(selectedMaterials.bathroomPorcelainTraySqm > 0)) selectedMaterials.bathroomPorcelainTraySqm = 1;
+            } else if (set.has('plumb-tray')) {
+                const rawTraySqm = bfPcs.bfTrayPorcelainSqm;
+                if (rawTraySqm !== '' && rawTraySqm != null && rawTraySqm !== undefined) {
+                    const traySqm = parseFloat(String(rawTraySqm).replace(',', '.'));
+                    if (!isNaN(traySqm) && traySqm > 0) selectedMaterials.bathroomPorcelainTraySqm = traySqm;
+                }
+                if (!(selectedMaterials.bathroomPorcelainTraySqm > 0)) selectedMaterials.bathroomPorcelainTraySqm = 1;
             }
 
-            let wtt = null;
-            let wttName = '';
-            let bwPriKey = null;
-            if (set.has('bw-tile-porcelain')) { wtt = 'porcelain'; wttName = 'Керамогранит'; bwPriKey = 'bw-tile-porcelain'; }
-            else if (set.has('bw-tile-ceramic')) { wtt = 'ceramic'; wttName = 'Керамическая плитка'; bwPriKey = 'bw-tile-ceramic'; }
-            else if (set.has('bw-mosaic')) { wtt = 'mosaic'; wttName = 'Мозаика'; bwPriKey = 'bw-mosaic'; }
-            const wtStrSub = bwPriKey ? strSqm(qSqmSub(bwPriKey, wallTileSq)) : wtStr;
-            if (wtt) {
-                selectedMaterials.wallTile = { type: wtt, name: wttName, area: wtStrSub, quantity: 1 };
+            const bwFinishOrder = ['bw-tile-porcelain', 'bw-tile-ceramic', 'bw-mosaic'];
+            const bwTypeMap = {
+                'bw-tile-porcelain': { type: 'porcelain', name: 'Керамогранит' },
+                'bw-tile-ceramic': { type: 'ceramic', name: 'Керамическая плитка' },
+                'bw-mosaic': { type: 'mosaic', name: 'Мозаика' }
+            };
+            selectedMaterials.wallTileVariants = [];
+            for (let bwi = 0; bwi < bwFinishOrder.length; bwi++) {
+                const bwKey = bwFinishOrder[bwi];
+                if (set.has(bwKey) && bwTypeMap[bwKey]) {
+                    const bw = bwTypeMap[bwKey];
+                    selectedMaterials.wallTileVariants.push({
+                        type: bw.type,
+                        name: bw.name,
+                        area: strSqm(qSqmSub(bwKey, wallTileSq)),
+                        quantity: 1
+                    });
+                }
+            }
+            if (selectedMaterials.wallTileVariants.length > 0) {
+                selectedMaterials.wallTile = selectedMaterials.wallTileVariants[0];
+            } else {
+                selectedMaterials.wallTile = null;
             }
             /* Штукатурка под плитку — отдельно от типа плитки стен (как короб / запил 45°): иначе при одном только bw-plaster не формировались смета и корзина. */
             if (set.has('bw-plaster')) {
@@ -1134,6 +2014,7 @@ function buildMaterialsListHtml() {
                 ['plumb-toilet', 'toilet', 'Унитаз (напольный)'],
                 ['plumb-bathtub', 'bathtub', 'Ванна'],
                 ['plumb-shower', 'shower', 'Душевая кабина'],
+                ['plumb-tray', 'tray', 'Поддон из керамогранита'],
                 ['plumb-sink', 'sink', 'Установка раковины'],
                 ['plumb-sinkcabinet', 'sinkcabinet', 'Установка раковины с тумбой'],
                 ['plumb-heating', 'heating', 'Радиатор отопления'],
@@ -1214,18 +2095,6 @@ function buildMaterialsListHtml() {
 
         const sections = [];
         let totalCost = 0;
-        const TILE_CEMENT_GROUT_RATE = 150;
-        function pushTileCementGrout(items, areaSqm) {
-            const a = parseFloat(areaSqm) || 0;
-            if (a <= 0 || !items) return;
-            items.push({
-                name: "Затирка плитки цементной затиркой",
-                rate: TILE_CEMENT_GROUT_RATE,
-                quantity: a.toFixed(1),
-                unit: "кв.м.",
-                total: (a * TILE_CEMENT_GROUT_RATE).toFixed(1)
-            });
-        }
 
         // Демонтаж — первым в смете (справочник: demo-wall, demo-floor, demo-linoleum, demo-wallpaper, demo-paint)
         if (selectedMaterials.demolition && selectedMaterials.demolition.length > 0) {
@@ -1333,246 +2202,15 @@ function buildMaterialsListHtml() {
             subsections: []
         };
 
-        // Отделка стен
-        if (selectedMaterials.walls) {
-            const wallSection = {
-                name: "ОТДЕЛКА СТЕН",
-                subsections: [{
-                    name: "",
-                    items: []
-                }]
-            };
-
-            const wallMaterial = selectedMaterials.walls;
-            const wallArea = parseFloat(wallMaterial.area.replace(' м²', '')) || 0;
-            
-            const wallVarListEarly = selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length > 1
-                ? selectedMaterials.wallsVariants
-                : null;
-
-            const plasterAreaSqmTotal = getWallPlasterAreaSqm(selectedMaterials.additionalWalls);
-            const hasPlasterSprav = plasterAreaSqmTotal > 0;
-            const puttyAreaSqmTotal = getWallPuttyAreaSqm(selectedMaterials.additionalWalls);
-            const hasPuttySprav = puttyAreaSqmTotal > 0;
-            const hasLivingFinishPrimer = wallFinishUsesOnePrimerLayer(wallMaterial.type);
-            const wallVarList = wallVarListEarly;
-            let livingPrimerArea = wallArea;
-            if (wallVarList && wallVarList.length) {
-                let sumVarArea = 0;
-                wallVarList.forEach(function (wv) {
-                    const sq = parseFloat(String(wv.area || '').replace(' м²', '').replace(',', '.')) || 0;
-                    if (sq > 0) sumVarArea += sq;
-                });
-                if (sumVarArea > 0) livingPrimerArea = sumVarArea;
-            }
-            if (hasPlasterSprav || hasPuttySprav || hasLivingFinishPrimer) {
-                const primerArea = wallLivingPrimerAreaSqm(
-                    wallArea,
-                    livingPrimerArea,
-                    plasterAreaSqmTotal,
-                    puttyAreaSqmTotal,
-                    hasLivingFinishPrimer
-                );
-                pushWallLivingFinishPrimer(
-                    wallSection.subsections[0].items,
-                    primerArea,
-                    hasPlasterSprav,
-                    hasPuttySprav,
-                    hasLivingFinishPrimer
-                );
-            }
-
-            if (hasPlasterSprav) {
-                wallSection.subsections[0].items.push({
-                    name: "Штукатурка стен",
-                    rate: 550,
-                    quantity: plasterAreaSqmTotal.toFixed(1),
-                    unit: "кв.м.",
-                    total: (plasterAreaSqmTotal * 550).toFixed(1)
+        // Отделка стен (жилые): все отмеченные позиции + суммарная грунтовка
+        if (hasLivingWallEstimateWorks(selectedMaterials)) {
+            const wallItems = buildLivingWallsEstimateItems(selectedMaterials);
+            if (wallItems.length > 0) {
+                sections.push({
+                    name: "ОТДЕЛКА СТЕН",
+                    subsections: [{ name: "", items: wallItems }]
                 });
             }
-
-            if (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.length > 0) {
-                selectedMaterials.additionalWalls.forEach(function (puttyMat) {
-                    if (!isWallPuttySpravType(puttyMat.type)) return;
-                    const puttyAreaSq = parseFloat(String(puttyMat.area || '').replace(' м²', '').replace(',', '.')) || 0;
-                    pushWallPuttyAndSandingEstimateItems(
-                        wallSection.subsections[0].items,
-                        puttyAreaSq,
-                        puttyMat.type
-                    );
-                });
-            }
-
-            // Материал для стен (два варианта: керамика + керамогранит на жилых стенах — две строки, площадь поровну)
-            function wallFinishWorkRow(type) {
-                let wallWorkRate = 0;
-                let wallWorkName = "";
-                switch (type) {
-                    case 'paint':
-                        wallWorkRate = 300;
-                        wallWorkName = "Покраска стен";
-                        break;
-                    case 'wallpaper':
-                        wallWorkRate = 300;
-                        wallWorkName = "Поклейка обоев";
-                        break;
-                    case 'decorative':
-                        wallWorkRate = 950;
-                        wallWorkName = "Декоративная штукатурка";
-                        break;
-                    case 'panels':
-                        wallWorkRate = 950;
-                        wallWorkName = "Установка панелей";
-                        break;
-                    case 'tile':
-                        wallWorkRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
-                        wallWorkName = "Укладка керамической плитки на стенах";
-                        break;
-                    case 'porcelain':
-                        wallWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
-                        wallWorkName = "Укладка керамогранита на стенах";
-                        break;
-                    case 'plaster':
-                        wallWorkRate = 350;
-                        wallWorkName = "Штукатурка стен";
-                        break;
-                    case 'gypsumFrame':
-                        wallWorkRate = 850;
-                        wallWorkName = "Обшивка стен гипсокартоном на каркасе";
-                        break;
-                    default:
-                        wallWorkRate = 0;
-                        wallWorkName = "Неизвестный материал";
-                        break;
-                }
-                return { wallWorkRate: wallWorkRate, wallWorkName: wallWorkName };
-            }
-
-            if (wallVarList) {
-                wallVarList.forEach(function (wv) {
-                    const row = wallFinishWorkRow(wv.type);
-                    const a = parseFloat(String(wv.area || '').replace(' м²', '').replace(',', '.')) || 0;
-                    if (row.wallWorkRate > 0 && a > 0) {
-                        wallSection.subsections[0].items.push({
-                            name: row.wallWorkName,
-                            rate: row.wallWorkRate,
-                            quantity: a.toFixed(1),
-                            unit: "кв.м.",
-                            total: (a * row.wallWorkRate).toFixed(1)
-                        });
-                        if (wv.type === 'tile' || wv.type === 'porcelain') {
-                            pushTileCementGrout(wallSection.subsections[0].items, a);
-                        }
-                    }
-                });
-            } else {
-                const row = wallFinishWorkRow(wallMaterial.type);
-                if (row.wallWorkRate > 0) {
-                    wallSection.subsections[0].items.push({
-                        name: row.wallWorkName,
-                        rate: row.wallWorkRate,
-                        quantity: wallArea.toFixed(1),
-                        unit: "кв.м.",
-                        total: (wallArea * row.wallWorkRate).toFixed(1)
-                    });
-                    if (wallMaterial.type === 'tile' || wallMaterial.type === 'porcelain') {
-                        pushTileCementGrout(wallSection.subsections[0].items, wallArea);
-                    }
-                }
-            }
-
-            // Добавляем дополнительные материалы для стен (например, штукатурка, шпаклёвка по справочнику)
-            if (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.length > 0) {
-                selectedMaterials.additionalWalls.forEach(additionalMaterial => {
-                    if (additionalMaterial.type === 'plaster') {
-                        return;
-                    }
-                    if (isWallPuttySpravType(additionalMaterial.type)) {
-                        return;
-                    }
-                    let additionalWorkRate = 0;
-                    let additionalWorkName = "";
-                    
-                    switch(additionalMaterial.type) {
-                        case 'ceramicGraniteApron':
-                            additionalWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
-                            additionalWorkName = "Укладка фартука из керамогранита";
-                            break;
-                        default:
-                            additionalWorkRate = 0;
-                            additionalWorkName = "Неизвестный дополнительный материал";
-                            break;
-                    }
-                    
-                    if (additionalWorkRate > 0) {
-                        const additionalArea = parseFloat(additionalMaterial.area.replace(' м²', '')) || 0;
-                        
-                        if (additionalMaterial.type === 'ceramicGraniteApron') {
-                            wallSection.subsections[0].items.push({
-                                name: additionalWorkName,
-                                rate: additionalWorkRate,
-                                quantity: additionalArea.toFixed(1),
-                                unit: "кв.м.",
-                                total: (additionalArea * additionalWorkRate).toFixed(1)
-                            });
-                            pushTileCementGrout(wallSection.subsections[0].items, additionalArea);
-                        } else {
-                            wallSection.subsections[0].items.push({
-                                name: additionalWorkName,
-                                rate: additionalWorkRate,
-                                quantity: additionalArea.toFixed(1),
-                                unit: "кв.м.",
-                                total: (additionalArea * additionalWorkRate).toFixed(1)
-                            });
-                        }
-                    }
-                });
-            }
-
-            sections.push(wallSection);
-        } else if (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.some(m => m.type === 'plaster' || isWallPuttySpravType(m.type) || m.type === 'ceramicGraniteApron')) {
-            const items = [];
-            const plasterAreaSqm = getWallPlasterAreaSqm(selectedMaterials.additionalWalls);
-            const hasPlasterSprav = plasterAreaSqm > 0;
-            const standalonePuttyArea = getWallPuttyAreaSqm(selectedMaterials.additionalWalls);
-            const hasPuttySprav = standalonePuttyArea > 0;
-            if (hasPlasterSprav || hasPuttySprav) {
-                const primerArea = wallLivingPrimerAreaSqm(0, 0, plasterAreaSqm, standalonePuttyArea, false);
-                pushWallLivingFinishPrimer(items, primerArea, hasPlasterSprav, hasPuttySprav, false);
-            }
-            if (hasPlasterSprav) {
-                items.push({
-                    name: "Штукатурка стен",
-                    rate: 550,
-                    quantity: plasterAreaSqm.toFixed(1),
-                    unit: "кв.м.",
-                    total: (plasterAreaSqm * 550).toFixed(1)
-                });
-            }
-            const ap = selectedMaterials.additionalWalls.find(m => m.type === 'ceramicGraniteApron');
-            (selectedMaterials.additionalWalls || []).forEach(function (pt) {
-                if (!isWallPuttySpravType(pt.type)) return;
-                const puttyAreaSqm = parseFloat((pt.area ? String(pt.area) : '').replace(' м²', '').replace(',', '.')) || 0;
-                pushWallPuttyAndSandingEstimateItems(items, puttyAreaSqm, pt.type);
-            });
-            if (ap) {
-                const apronAreaSqm = parseFloat((ap.area ? String(ap.area) : '').replace(' м²', '').replace(',', '.')) || 0;
-                if (apronAreaSqm > 0) {
-                    items.push({
-                        name: "Укладка фартука из керамогранита",
-                        rate: ESTIMATE_RATE_TILE_PORCELAIN_SQM,
-                        quantity: apronAreaSqm.toFixed(1),
-                        unit: "кв.м.",
-                        total: (apronAreaSqm * ESTIMATE_RATE_TILE_PORCELAIN_SQM).toFixed(1)
-                    });
-                    pushTileCementGrout(items, apronAreaSqm);
-                }
-            }
-            sections.push({
-                name: "ОТДЕЛКА СТЕН",
-                subsections: [{ name: "", items: items }]
-            });
         }
 
         function getRoomsDataForSkirtingEstimate() {
@@ -1595,6 +2233,7 @@ function buildMaterialsListHtml() {
             if (!floorSection || !floorSection.subsections || !floorSection.subsections[0] || !floorSection.subsections[0].items) return;
             if (!selectedMaterials.additionalFloors || !selectedMaterials.additionalFloors.length) return;
             selectedMaterials.additionalFloors.forEach(function (additionalMaterial) {
+                if (!isLivingAdditionalFloor(additionalMaterial)) return;
                 let additionalWorkRate = 0;
                 let additionalWorkName = "";
                 switch (additionalMaterial.type) {
@@ -1650,178 +2289,31 @@ function buildMaterialsListHtml() {
             });
         }
 
-        // Отделка полов
-        if (selectedMaterials.floors) {
+        // Отделка полов (жилые): все отмеченные позиции + суммарная грунтовка
+        if (hasLivingFloorEstimateWorks(selectedMaterials)) {
+            const floorItems = buildLivingFloorsEstimateItems(selectedMaterials);
             const floorSection = {
                 name: "НАПОЛЬНЫЕ ПОКРЫТИЯ",
-                subsections: [{
-                    name: "",
-                    items: []
-                }]
+                subsections: [{ name: "", items: floorItems }]
             };
-
-            const floorMaterial = selectedMaterials.floors;
-            const floorArea = parseFloat(floorMaterial.area.replace(' м²', '')) || 0;
-
-            // Грунтовка пола: +1 покрытие, +1 стяжка, +1 наливной. Квадратура = площадь × слои
-            const floorPrimerLayers = floorPrimerLayerCount(selectedMaterials.additionalFloors, true);
-            const floorPrimerQty = floorArea * floorPrimerLayers;
-            const floorPrimerName = floorPrimerLayers > 1 ? "Грунтовка пола (" + floorPrimerLayers + (floorPrimerLayers >= 2 && floorPrimerLayers <= 4 ? " слоя)" : " слоёв)") : "Грунтовка пола";
-            floorSection.subsections[0].items.push({
-                name: floorPrimerName,
-                rate: 60,
-                quantity: floorPrimerQty.toFixed(1),
-                unit: "кв.м.",
-                total: (floorPrimerQty * 60).toFixed(1)
-            });
-
-            // Материал для полов
-            let floorWorkRate = 0;
-            let floorWorkName = "";
-            
-            switch(floorMaterial.type) {
-                case 'laminate':
-                    floorWorkRate = 950;
-                    floorWorkName = "Укладка ламината";
-                    break;
-                case 'pvc':
-                    floorWorkRate = 950;
-                    floorWorkName = "Укладка ПВХ плитки";
-                    break;
-                case 'tile':
-                    floorWorkRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
-                    floorWorkName = "Укладка керамической плитки";
-                    break;
-                case 'porcelain':
-                    floorWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
-                    floorWorkName = "Укладка керамогранита";
-                    break;
-                case 'mosaic':
-                    floorWorkRate = 3000;
-                    floorWorkName = "Укладка мозаики";
-                    break;
-                case 'parquet':
-                    floorWorkRate = 1200;
-                    floorWorkName = "Укладка паркета";
-                    break;
-                case 'linoleum':
-                    floorWorkRate = 450;
-                    floorWorkName = "Укладка линолеума";
-                    break;
-                case 'carpet':
-                    floorWorkRate = 950;
-                    floorWorkName = "Укладка ковролина";
-                    break;
-            }
-
-            floorSection.subsections[0].items.push({
-                name: floorWorkName,
-                rate: floorWorkRate,
-                quantity: floorArea.toFixed(1),
-                unit: "кв.м.",
-                total: (floorArea * floorWorkRate).toFixed(1)
-            });
-            if (floorMaterial.type === 'tile' || floorMaterial.type === 'porcelain' || floorMaterial.type === 'mosaic') {
-                pushTileCementGrout(floorSection.subsections[0].items, floorArea);
-            }
-
             appendAdditionalLivingFloorItems(floorSection);
-
-            sections.push(floorSection);
-        } else if (selectedMaterials.additionalFloors && selectedMaterials.additionalFloors.length > 0) {
-            /* Только плинтус / стяжка / наливной (жилые или санузел) без основного напольного покрытия — всё равно в смету */
-            const floorSectionOnlyExtra = {
-                name: "НАПОЛЬНЫЕ ПОКРЫТИЯ",
-                subsections: [{ name: "", items: [] }]
-            };
-            let extraPrimerBaseSqm = 0;
-            (selectedMaterials.additionalFloors || []).forEach(function (m) {
-                if (m.type !== 'screed' && m.type !== 'selfLeveling') return;
-                const sq = parseFloat(String(m.area || '').replace(' м²', '').replace(',', '.')) || 0;
-                if (sq > extraPrimerBaseSqm) extraPrimerBaseSqm = sq;
-            });
-            const extraFloorPrimerLayers = floorPrimerLayerCount(selectedMaterials.additionalFloors, false);
-            if (extraPrimerBaseSqm > 0) {
-                const pq = extraPrimerBaseSqm * extraFloorPrimerLayers;
-                const pn = extraFloorPrimerLayers > 1
-                    ? "Грунтовка пола (" + extraFloorPrimerLayers + (extraFloorPrimerLayers >= 2 && extraFloorPrimerLayers <= 4 ? " слоя)" : " слоёв)")
-                    : "Грунтовка пола";
-                floorSectionOnlyExtra.subsections[0].items.push({
-                    name: pn,
-                    rate: 60,
-                    quantity: pq.toFixed(1),
-                    unit: "кв.м.",
-                    total: (pq * 60).toFixed(1)
-                });
-            }
-            appendAdditionalLivingFloorItems(floorSectionOnlyExtra);
-            if (floorSectionOnlyExtra.subsections[0].items.length > 0) {
-                sections.push(floorSectionOnlyExtra);
+            if (floorSection.subsections[0].items.length > 0) {
+                sections.push(floorSection);
             }
         }
 
         // Плиточные работы (детализированные разделы)
         const hasTrayInPlumbing = selectedMaterials.plumbing && selectedMaterials.plumbing.some(function(s) { return s.type === 'tray'; });
         const hasBfTray = Boolean(selectedMaterials.bathroomPorcelainTrayEnabled);
-        const hasTile45Cut = selectedMaterials.additionalWallTile && selectedMaterials.additionalWallTile.some(function(m) { return m.type === 'tile45Cut'; });
-        const hasBathroomWallBox = selectedMaterials.additionalWallTile && selectedMaterials.additionalWallTile.some(function(m) {
-            return m.type === 'box' && (parseInt(String(m.quantity), 10) || 0) > 0;
-        });
-        const hasBathroomWallTilePlasterSprav = selectedMaterials.additionalWallTile && selectedMaterials.additionalWallTile.some(function (m) { return m.type === 'plaster'; });
-        if (selectedMaterials.bathroomFloors || selectedMaterials.wallTile || hasTrayInPlumbing || hasBfTray || hasTile45Cut || hasBathroomWallBox || hasBathroomWallTilePlasterSprav) {
+        if (hasBathroomFloorFinishWorks(selectedMaterials) || hasTrayInPlumbing || hasBfTray || hasBathroomWallEstimateWorks(selectedMaterials)) {
             // 1. САНУЗЕЛ ПОЛ (создаём при выборе пола санузла или поддона из керамогранита)
-            if (selectedMaterials.bathroomFloors || hasTrayInPlumbing || hasBfTray) {
-                const bathroomFloorArea = selectedMaterials.bathroomFloors ? parseFloat(selectedMaterials.bathroomFloors.area.replace(' м²', '')) || 0 : 0;
-                
-                const floorTileSection = {
-                    name: "САНУЗЕЛ ПОЛ",
-                    subsections: [{
-                        name: "",
-                        items: []
-                    }]
-                };
+            if (hasBathroomFloorFinishWorks(selectedMaterials) || hasTrayInPlumbing || hasBfTray) {
+                const bathFloorItems = buildBathroomFloorEstimateItems(selectedMaterials);
 
-                if (selectedMaterials.bathroomFloors) {
-                    // Грунтовка пола санузла — floorPrimerLayerCount (стяжка + наливной)
-                    const bathroomPrimerLayers = floorPrimerLayerCount(selectedMaterials.additionalBathroomFloors, true);
-                    const bathroomPrimerQty = bathroomFloorArea * bathroomPrimerLayers;
-                    const bathroomPrimerName = bathroomPrimerLayers > 1 ? "Грунтовка пола (" + bathroomPrimerLayers + (bathroomPrimerLayers >= 2 && bathroomPrimerLayers <= 4 ? " слоя)" : " слоёв)") : "Грунтовка пола";
-                    floorTileSection.subsections[0].items.push({
-                        name: bathroomPrimerName,
-                        rate: 60,
-                        quantity: bathroomPrimerQty.toFixed(1),
-                        unit: "кв.м.",
-                        total: (bathroomPrimerQty * 60).toFixed(1)
-                    });
-
-                    // Укладка на пол плитки (мозаика 3000, керамогранит 2800, керамика 2600)
-                    let floorTileRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
-                    let floorTileName = "Укладка на пол стандартной плитки";
-                    if (selectedMaterials.bathroomFloors.type === 'mosaic') {
-                        floorTileRate = 3000;
-                        floorTileName = "Укладка мозаики на пол";
-                    } else if (selectedMaterials.bathroomFloors.type === 'porcelain') {
-                        floorTileRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
-                        floorTileName = "Укладка керамогранита на пол";
-                    }
-                    floorTileSection.subsections[0].items.push({
-                        name: floorTileName,
-                        rate: floorTileRate,
-                        quantity: bathroomFloorArea.toFixed(1),
-                        unit: "кв.м.",
-                        total: (bathroomFloorArea * floorTileRate).toFixed(1)
-                    });
-                    const bfType = selectedMaterials.bathroomFloors.type;
-                    if (bfType === 'porcelain' || bfType === 'ceramic' || bfType === 'tile' || bfType === 'mosaic') {
-                        pushTileCementGrout(floorTileSection.subsections[0].items, bathroomFloorArea);
-                    }
-                }
-
-                // Поддон из керамогранита — в позиции Санузел пол (сантехника «поддон» + поле «Поддон из керамогранита»)
                 const trayPlQty = hasTrayInPlumbing ? selectedMaterials.plumbing.reduce(function(sum, s) { return s.type === 'tray' ? sum + (parseInt(s.quantity, 10) || 1) : sum; }, 0) : 0;
                 const trayQtyTotal = trayPlQty + (hasBfTray ? 1 : 0);
                 if (trayQtyTotal > 0) {
-                    floorTileSection.subsections[0].items.push({
+                    bathFloorItems.push({
                         name: "Поддон из керамогранита",
                         rate: 15000,
                         quantity: trayQtyTotal,
@@ -1830,179 +2322,23 @@ function buildMaterialsListHtml() {
                     });
                 }
 
-                // Добавляем дополнительные материалы для полов санузлов (например, стяжка под плитку)
-                if (selectedMaterials.bathroomFloors && selectedMaterials.additionalBathroomFloors && selectedMaterials.additionalBathroomFloors.length > 0) {
-                    selectedMaterials.additionalBathroomFloors.forEach(additionalMaterial => {
-                        let additionalWorkRate = 0;
-                        let additionalWorkName = "";
-                        
-                        switch(additionalMaterial.type) {
-                            case 'screed':
-                                additionalWorkRate = 950;
-                                additionalWorkName = "Стяжка под плитку";
-                                break;
-                            case 'selfLeveling':
-                                additionalWorkRate = selfLevelingWorkRatePerSqm(additionalMaterial.thicknessMm);
-                                additionalWorkName = "Наливной пол";
-                                break;
-                            default:
-                                additionalWorkRate = 0;
-                                additionalWorkName = "Неизвестный дополнительный материал";
-                                break;
-                        }
-                        
-                        if (additionalWorkRate > 0) {
-                            const additionalArea = parseFloat(additionalMaterial.area.replace(' м²', '')) || 0;
-                            floorTileSection.subsections[0].items.push({
-                                name: additionalWorkName,
-                                rate: additionalWorkRate,
-                                quantity: additionalArea.toFixed(1),
-                                unit: "кв.м.",
-                                total: (additionalArea * additionalWorkRate).toFixed(1)
-                            });
-                        }
+                if (bathFloorItems.length > 0) {
+                    sections.push({
+                        name: "САНУЗЕЛ ПОЛ",
+                        subsections: [{ name: "", items: bathFloorItems }]
                     });
                 }
-
-                sections.push(floorTileSection);
             }
 
             // 2. САНУЗЕЛ СТЕНЫ
-            if (selectedMaterials.wallTile || hasTile45Cut || hasBathroomWallBox || hasBathroomWallTilePlasterSprav) {
-                const hasWallTilePlaster = selectedMaterials.additionalWallTile && selectedMaterials.additionalWallTile.some(m => m.type === 'plaster');
-                let wallTileArea = selectedMaterials.wallTile ? (parseFloat(String(selectedMaterials.wallTile.area || '').replace(' м²', '').replace(',', '.')) || 0) : 0;
-                if (wallTileArea <= 0 && hasWallTilePlaster) {
-                    const plWt = selectedMaterials.additionalWallTile.find(function (m) { return m.type === 'plaster'; });
-                    if (plWt && plWt.area) {
-                        const pa = parseFloat(String(plWt.area).replace(' м²', '').replace(',', '.')) || 0;
-                        if (pa > 0) wallTileArea = pa;
-                    }
-                }
-
-                const wallTileSection = {
-                    name: "САНУЗЕЛ СТЕНЫ",
-                    subsections: [{
-                        name: "",
-                        items: []
-                    }]
-                };
-
-                const hasWallTile = Boolean(selectedMaterials.wallTile);
-
-                // Грунтовка стен СУ: 1 слой при плитке; +1 слой при штукатурке (квадратура = площадь × слои)
-                if (wallTileArea > 0 && (hasWallTile || hasWallTilePlaster)) {
-                    const wallTilePrimerLayers = (hasWallTilePlaster && hasWallTile) ? 2 : 1;
-                    const wallTilePrimerQty = wallTileArea * wallTilePrimerLayers;
-                    const wallTilePrimerName = wallTilePrimerLayers > 1
-                        ? "Грунтовка стен (2 слоя)"
-                        : "Грунтовка стен";
-                    wallTileSection.subsections[0].items.push({
-                        name: wallTilePrimerName,
-                        rate: 60,
-                        quantity: wallTilePrimerQty.toFixed(1),
-                        unit: "кв.м.",
-                        total: (wallTilePrimerQty * 60).toFixed(1)
+            if (hasBathroomWallEstimateWorks(selectedMaterials)) {
+                const wallItems = buildBathroomWallsEstimateItems(selectedMaterials);
+                if (wallItems.length > 0) {
+                    sections.push({
+                        name: "САНУЗЕЛ СТЕНЫ",
+                        subsections: [{ name: "", items: wallItems }]
                     });
                 }
-
-                // Штукатурка под плитку — после грунтовки, до облицовки
-                if (hasWallTilePlaster) {
-                    const plWt = selectedMaterials.additionalWallTile.find(function (m) { return m.type === 'plaster'; });
-                    if (plWt && plWt.area) {
-                        const plasterAreaSu = parseFloat(String(plWt.area).replace(' м²', '').replace(',', '.')) || 0;
-                        if (plasterAreaSu > 0) {
-                            wallTileSection.subsections[0].items.push({
-                                name: "Штукатурка стен под плитку",
-                                rate: 550,
-                                quantity: plasterAreaSu.toFixed(1),
-                                unit: "кв.м.",
-                                total: (plasterAreaSu * 550).toFixed(1)
-                            });
-                        }
-                    }
-                }
-
-                if (hasWallTile) {
-                    // Гидроизоляция стен 8 м² — автоматом при выборе ванны
-                    const hasBathtub = selectedMaterials.plumbing && selectedMaterials.plumbing.some(function(s) { return s.type === 'bathtub'; });
-                    if (hasBathtub) {
-                        wallTileSection.subsections[0].items.push({
-                            name: "Гидроизоляция стен",
-                            rate: 600,
-                            quantity: 8,
-                            unit: "кв.м.",
-                            total: (8 * 600).toFixed(1)
-                        });
-                    }
-
-                    // Облицовка стен плиткой (мозаика 3000, керамогранит 2800, керамика 2600)
-                    let wallTileRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
-                    let wallTileName = "Облицовка стен стандартной плиткой";
-                    if (selectedMaterials.wallTile.type === 'mosaic') {
-                        wallTileRate = 3000;
-                        wallTileName = "Облицовка стен мозаикой";
-                    } else if (selectedMaterials.wallTile.type === 'porcelain') {
-                        wallTileRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
-                        wallTileName = "Облицовка стен керамогранитом";
-                    }
-                    wallTileSection.subsections[0].items.push({
-                        name: wallTileName,
-                        rate: wallTileRate,
-                        quantity: wallTileArea.toFixed(1),
-                        unit: "кв.м.",
-                        total: (wallTileArea * wallTileRate).toFixed(1)
-                    });
-                    const wtType = selectedMaterials.wallTile.type;
-                    if (wtType === 'porcelain' || wtType === 'ceramic' || wtType === 'tile' || wtType === 'mosaic') {
-                        pushTileCementGrout(wallTileSection.subsections[0].items, wallTileArea);
-                    }
-                }
-
-                // Доп. работы стен санузла: короб, запил 45° (штукатурка — выше, вместе с грунтовкой)
-                if (selectedMaterials.additionalWallTile && selectedMaterials.additionalWallTile.length > 0) {
-                    selectedMaterials.additionalWallTile.forEach(additionalMaterial => {
-                        if (additionalMaterial.type === 'plaster') {
-                            /* уже добавлено выше */
-                        } else if (additionalMaterial.type === 'box') {
-                            const boxQty = additionalMaterial.quantity || 0;
-                            if (boxQty > 0) {
-                                wallTileSection.subsections[0].items.push({
-                                    name: "Устройство короба",
-                                    rate: 1900,
-                                    quantity: boxQty,
-                                    unit: "шт.",
-                                    total: (boxQty * 1900).toFixed(1)
-                                });
-                            }
-                        } else if (additionalMaterial.type === 'tile45Cut') {
-                            const tile45Qty = parseFloat(additionalMaterial.quantity) || 0;
-                            if (tile45Qty > 0) {
-                                wallTileSection.subsections[0].items.push({
-                                    name: "Запил плитки под 45°",
-                                    rate: 1200,
-                                    quantity: tile45Qty,
-                                    unit: "п.м.",
-                                    total: (tile45Qty * 1200).toFixed(1)
-                                });
-                            }
-                        }
-                    });
-                }
-
-                // Устройство коробов из гипсокартона (инсталляция) — в разделе «Санузел стены», если выбрана инсталляция
-                const hasInstallation = selectedMaterials.plumbing && selectedMaterials.plumbing.some(function(s) { return s.type === 'installation'; });
-                if (hasInstallation) {
-                    const installationCount = selectedMaterials.plumbing.reduce(function(sum, s) { return s.type === 'installation' ? sum + (parseInt(s.quantity, 10) || 1) : sum; }, 0);
-                    wallTileSection.subsections[0].items.push({
-                        name: "Устройство Коробов из гипсокартона(инсталяция)",
-                        rate: 1900,
-                        quantity: installationCount,
-                        unit: "шт.",
-                        total: (installationCount * 1900).toFixed(1)
-                    });
-                }
-
-                sections.push(wallTileSection);
             }
         }
 
@@ -2074,7 +2410,7 @@ function buildMaterialsListHtml() {
                         ceilingWorkName = "Штукатурка потолков";
                         break;
                     case 'fabric':
-                        ceilingWorkRate = 950;
+                        ceilingWorkRate = 1200;
                         ceilingWorkName = "Устройство тканевых потолков";
                         break;
                     case 'armstrong':
@@ -2253,7 +2589,7 @@ function buildMaterialsListHtml() {
                             workName = "Установка выключателей";
                             break;
                         case 'panel':
-                            workRate = 5000;
+                            workRate = 3000;
                             workName = "Установка электрощитка";
                             break;
                         case 'breakers':
@@ -2281,7 +2617,7 @@ function buildMaterialsListHtml() {
                             workName = "Штробление отверстий для подрозетников";
                             break;
                         case 'outletBoxes':
-                            workRate = 350;
+                            workRate = 150;
                             workName = "Установка подрозетников";
                             break;
                         case 'electricalChasing':
@@ -2327,8 +2663,13 @@ function buildMaterialsListHtml() {
             sections.push(electricalSection);
         }
 
-        // 3. САНТЕХНИЧЕСКИЕ РАБОТЫ — только если выбрана хотя бы одна услуга
-        if (selectedMaterials.plumbing && selectedMaterials.plumbing.length > 0) {
+        // 3. САНТЕХНИЧЕСКИЕ РАБОТЫ — услуги сантехмонтажа и/или поддон из керамогранита (слив без ГВ/ХВ)
+        const hasTrayInPlumbingSvc = selectedMaterials.plumbing && selectedMaterials.plumbing.some(function (s) { return s.type === 'tray'; });
+        const hasBfTrayPlumbing = Boolean(selectedMaterials.bathroomPorcelainTrayEnabled);
+        const porcelainTrayInstallQty = (hasTrayInPlumbingSvc ? selectedMaterials.plumbing.reduce(function (sum, s) {
+            return s.type === 'tray' ? sum + (parseInt(s.quantity, 10) || 1) : sum;
+        }, 0) : 0) + (hasBfTrayPlumbing ? 1 : 0);
+        if ((selectedMaterials.plumbing && selectedMaterials.plumbing.length > 0) || porcelainTrayInstallQty > 0) {
             const plumbingSection = {
                 name: "САНТЕХНИЧЕСКИЕ РАБОТЫ",
                 subsections: [{
@@ -2368,7 +2709,7 @@ function buildMaterialsListHtml() {
                         break;
                     case 'installation':
                         workRate = 6000;
-                        workName = "Установка инсталляции";
+                        workName = "Установка каркаса инсталляции";
                         break;
                     case 'gypsumBoxes':
                         workRate = 1900;
@@ -2473,15 +2814,25 @@ function buildMaterialsListHtml() {
                 }
             });
 
-            // При выборе ванны — автоматом гидроизоляция стен 8 м² (если раздела «Санузел стены» нет, добавляем в сантехработы)
+            // При выборе ванны или поддона из керамогранита — гидроизоляция стен 8 м² (если плитки на стенах СУ нет — в сантехработы)
             const hasBathtubInPlumbing = selectedMaterials.plumbing.some(function(s) { return s.type === 'bathtub'; });
-            if (hasBathtubInPlumbing && !selectedMaterials.wallTile) {
+            if ((hasBathtubInPlumbing || porcelainTrayInstallQty > 0) && !selectedMaterials.wallTile) {
                 plumbingSection.subsections[0].items.push({
                     name: "Гидроизоляция стен",
                     rate: 600,
                     quantity: 8,
                     unit: "кв.м.",
                     total: (8 * 600).toFixed(1)
+                });
+            }
+
+            if (porcelainTrayInstallQty > 0) {
+                plumbingSection.subsections[0].items.push({
+                    name: "Установка трапа",
+                    rate: 1500,
+                    quantity: porcelainTrayInstallQty,
+                    unit: "шт.",
+                    total: (porcelainTrayInstallQty * 1500).toFixed(1)
                 });
             }
 
@@ -2494,8 +2845,8 @@ function buildMaterialsListHtml() {
                     if (service.type === 'mixers') {
                         waterSupplyNodes += (service.quantity || 1) * 2;
                     }
-                    // Душевые и поддон требуют 2 узла (горячая + холодная вода)
-                    else if (service.type === 'shower' || service.type === 'showersystem' || service.type === 'tray') {
+                    // Душевые требуют 2 узла (горячая + холодная вода); поддон — только слив, без ГВ/ХВ
+                    else if (service.type === 'shower' || service.type === 'showersystem') {
                         waterSupplyNodes += (service.quantity || 1) * 2;
                     }
                     // Инсталляция требует 1 узел (холодная вода для унитаза)
@@ -2539,18 +2890,12 @@ function buildMaterialsListHtml() {
                         waterSupplyNodes += (service.quantity || 1) * 2;
                     }
                 });
-                if (selectedMaterials.bathroomPorcelainTrayEnabled) {
-                    waterSupplyNodes += 2;
-                }
             } else {
                 waterSupplyNodes = 0;
-                if (selectedMaterials.bathroomPorcelainTrayEnabled) {
-                    waterSupplyNodes = 2;
-                }
             }
 
             /* Разводка и штробление — только при ненулевом числе узлов (зеркала, полотенцесушитель, дверки, радиатор без канализации). */
-            if (selectedMaterials.plumbing && selectedMaterials.plumbing.length > 0 || selectedMaterials.bathroomPorcelainTrayEnabled) {
+            if ((selectedMaterials.plumbing && selectedMaterials.plumbing.length > 0) || hasBfTrayPlumbing) {
                 let sewerageNodes = 0;
                 const hasInstallationForSewer = selectedMaterials.plumbing.some(function (s) { return s.type === 'installation'; });
                 selectedMaterials.plumbing.forEach(service => {
@@ -2564,7 +2909,7 @@ function buildMaterialsListHtml() {
                         sewerageNodes += service.quantity || 1;
                     }
                 });
-                if (selectedMaterials.bathroomPorcelainTrayEnabled) {
+                if (hasBfTrayPlumbing) {
                     sewerageNodes += 1;
                 }
 
@@ -2576,6 +2921,12 @@ function buildMaterialsListHtml() {
                         unit: "шт.",
                         total: (waterSupplyNodes * 2500).toFixed(1)
                     });
+                }
+
+                const hasBathtubForPipeChasing = selectedMaterials.plumbing && selectedMaterials.plumbing.some(function (s) {
+                    return s && s.type === 'bathtub';
+                });
+                if (hasBathtubForPipeChasing || porcelainTrayInstallQty > 0) {
                     plumbingSection.subsections[0].items.push({
                         name: "Штробление с замазкой стен под трубу 2 х 22мм (кирпич)",
                         rate: 1000,
@@ -2592,13 +2943,6 @@ function buildMaterialsListHtml() {
                         quantity: sewerageNodes,
                         unit: "шт.",
                         total: (sewerageNodes * 1500).toFixed(1)
-                    });
-                    plumbingSection.subsections[0].items.push({
-                        name: "Штробление с замазкой стен под трубу 50мм (кирпич)",
-                        rate: 1000,
-                        quantity: 1.7,
-                        unit: "п.м.",
-                        total: (1.7 * 1000).toFixed(1)
                     });
                 }
             }
@@ -2711,10 +3055,11 @@ function buildMaterialsListHtml() {
         const wallTileArea = calc.materials.wallTile || 0;
         const totalFloorLiving = laminateArea;
         let livingWallTileForBasket = 0;
-        if (selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length > 1) {
-            livingWallTileForBasket = wallMaterialArea;
-        } else if (selectedMaterials.walls && (selectedMaterials.walls.type === 'tile' || selectedMaterials.walls.type === 'porcelain')) {
-            livingWallTileForBasket = wallMaterialArea;
+        if (selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length) {
+            livingWallTileForBasket = sumTileLayingAreaFromVariants(selectedMaterials.wallsVariants, wallMaterialArea);
+        } else if (selectedMaterials.walls && isTileLayingType(selectedMaterials.walls.type)) {
+            const wallTileSq = selectedMaterials.walls.area ? parseAreaStringToSqm(selectedMaterials.walls.area) : null;
+            livingWallTileForBasket = (wallTileSq != null && wallTileSq > 0) ? wallTileSq : wallMaterialArea;
         }
         /* Клей этапа 7: только если в справочнике отмечены соответствующие работы — не от плана «втихаря» */
         let apronTileSqmForGlue = 0;
@@ -2726,8 +3071,8 @@ function buildMaterialsListHtml() {
                 }
             });
         }
-        const bathFloorTileForGlue = selectedMaterials.bathroomFloors ? floorTileArea : 0;
-        const bathWallTileForGlue = selectedMaterials.wallTile ? wallTileArea : 0;
+        const bathFloorTileForGlue = sumTileLayingAreaFromVariants(getBathroomFloorFinishVariants(selectedMaterials), floorTileArea);
+        const bathWallTileForGlue = sumTileLayingAreaFromVariants(getBathroomWallTileVariants(selectedMaterials), wallTileArea);
         const tileTotalArea = bathFloorTileForGlue + bathWallTileForGlue + livingWallTileForBasket + apronTileSqmForGlue;
 
         const hasElectricalForMaterials = (selectedMaterials.electrical || []).length > 0;
@@ -3037,9 +3382,12 @@ function buildMaterialsListHtml() {
             add(4, 84858780, bathtubCount);      // Хомут для труб Mayer 1 1/2" 48-53 мм со шпилькой и дюбелем
         }
 
-        // Гидроизоляция стен санузла 8 м² при ванне без плитки на стенах
-        // По текущему правилу: 1 банка Glims GreenRezin 7 кг на 1 ванну
-        if (bathtubCount > 0 && !selectedMaterials.wallTile) add(4, 14182298, bathtubCount);   // Гидроизоляция эластичная Glims GreenRezin 7 кг
+        // Гидроизоляция стен санузла 8 м² при ванне или поддоне керамогранита без плитки на стенах
+        if (!selectedMaterials.wallTile) {
+            let hydroCans = bathtubCount;
+            if (hasPorcelainTrayScope(selectedMaterials)) hydroCans += 1;
+            if (hydroCans > 0) add(4, 14182298, hydroCans);   // Glims GreenRezin 7 кг
+        }
 
         // Комплект при выборе раковины/раковины с тумбой: тройник 50x40x50, крепёж, заглушки, трубы канализации, сифон, муфты, труба MONLID, обвод, подводки
         const sinkCount = (selectedMaterials.plumbing || []).reduce((sum, s) => (s.type === 'sink' || s.type === 'sinkcabinet') ? sum + (parseInt(s.quantity, 10) || 1) : sum, 0);
@@ -3117,25 +3465,26 @@ function buildMaterialsListHtml() {
         // ЭТАП 6 — черновые: грунтовка по площади (0.15 л/м², банка 10 л)
         // Площади в корзину только по отмеченным в справочнике позициям (стены/санузел/пол жилой), без «тихого» учёта всей квартиры из плана.
         // Жилой пол: без выбора покрытия в справочнике ламинат из плана в groundArea не включается; при выборе пола — отдельный add ниже.
+        const livingFloorFinishVariants = getLivingFloorFinishVariants(selectedMaterials);
+        const hasLivingFloorCovering = livingFloorFinishVariants.length > 0;
         let livingFloorSqmForCt17 = 0;
-        if (selectedMaterials.floors) {
-            const fromModal = parseAreaStringToSqm(selectedMaterials.floors.area);
-            livingFloorSqmForCt17 = (fromModal != null && fromModal > 0) ? fromModal : laminateArea;
-        }
+        livingFloorFinishVariants.forEach(function (f) {
+            livingFloorSqmForCt17 += livingFloorVariantSqm(f, laminateArea);
+        });
         /* Грунтовка пола в смете: floorPrimerLayerCount (1 на стяжку + 1 на наливной). */
-        const floorPrimerLayersForCt17 = floorPrimerLayerCount(selectedMaterials.additionalFloors, !!selectedMaterials.floors);
+        const floorPrimerLayersForCt17 = floorPrimerLayerCount(selectedMaterials.additionalFloors, hasLivingFloorCovering);
         const livingFloorInGroundArea = 0;
         const groundArea = wallSqForStage6Primer + livingFloorInGroundArea + floorTileSqForPrimer + wallTileSqForPrimer;
         add(6, 12757510, groundArea * 0.015); // Грунтовка Церезит СТ17 10 л
-        if (selectedMaterials.floors && livingFloorSqmForCt17 > 0) {
-            add(6, 12757510, livingFloorSqmForCt17 * floorPrimerLayersForCt17 * 0.015); // СТ17 под жилой пол — площадь × слои (как «Грунтовка пола» в смете)
+        if (hasLivingFloorCovering && livingFloorSqmForCt17 > 0) {
+            add(6, 12757510, livingFloorSqmForCt17 * floorPrimerLayersForCt17 * 0.015); // СТ17 под жилой пол — сумма площадей покрытий × слои
         }
-        if (!selectedMaterials.floors && selectedMaterials.additionalFloors && selectedMaterials.additionalFloors.length > 0) {
+        if (!hasLivingFloorCovering && selectedMaterials.additionalFloors && selectedMaterials.additionalFloors.length > 0) {
             let extraFloorSqmForCt17 = 0;
             selectedMaterials.additionalFloors.forEach(function (m) {
                 if (m.type !== 'screed' && m.type !== 'selfLeveling') return;
-                const sq = parseAreaStringToSqm(m.area);
-                if (sq != null && sq > extraFloorSqmForCt17) extraFloorSqmForCt17 = sq;
+                const sq = livingAdditionalFloorAreaSqm(m);
+                if (sq > extraFloorSqmForCt17) extraFloorSqmForCt17 = sq;
             });
             if (extraFloorSqmForCt17 > 0) {
                 add(6, 12757510, extraFloorSqmForCt17 * floorPrimerLayersForCt17 * 0.015); // стяжка/наливной без покрытия в модалке — как смета «только доп. полы»
@@ -3200,7 +3549,7 @@ function buildMaterialsListHtml() {
 
         if (selectedMaterials.additionalFloors && selectedMaterials.additionalFloors.length > 0) {
             selectedMaterials.additionalFloors.forEach(m => {
-                const area = parseFloat((m.area || '').toString().replace(' м²', '')) || 0;
+                const area = livingAdditionalFloorAreaSqm(m);
                 const selfThickF = layerThicknessQtyFactor(m.thicknessMm, LAYER_THICKNESS_BASE_MM.selfLeveling);
                 const screedThickF = layerThicknessQtyFactor(m.thicknessMm, LAYER_THICKNESS_BASE_MM.screed);
                 if (m.type === 'selfLeveling' && area > 0) {
@@ -3221,7 +3570,7 @@ function buildMaterialsListHtml() {
         }
         if (selectedMaterials.additionalBathroomFloors && selectedMaterials.additionalBathroomFloors.length > 0) {
             selectedMaterials.additionalBathroomFloors.forEach(m => {
-                const area = parseFloat((m.area || '').toString().replace(' м²', '')) || 0;
+                const area = livingAdditionalFloorAreaSqm(m);
                 const selfThickF = layerThicknessQtyFactor(m.thicknessMm, LAYER_THICKNESS_BASE_MM.selfLeveling);
                 const screedThickF = layerThicknessQtyFactor(m.thicknessMm, LAYER_THICKNESS_BASE_MM.screed);
                 if (m.type === 'selfLeveling' && area > 0) {
@@ -3307,9 +3656,18 @@ function buildMaterialsListHtml() {
             }
         }
 
+        const plasterScreedSelfLevelMusorBags = computePlasterScreedSelfLevelMusorBags(selectedMaterials);
+        const porcelainTrayMusorBags = computePorcelainTrayMusorBags(selectedMaterials);
+        const stage6MusorBags = plasterScreedSelfLevelMusorBags + porcelainTrayMusorBags;
+        if (stage6MusorBags > 0) {
+            add(6, 17968499, stage6MusorBags / MUSOR_BAGS_PER_PACK);
+        }
+
         // ЭТАП 7 — плиточные: по площади санузла + плитка на полу жилых комнат
         let livingFloorTileArea = 0;
-        if (selectedMaterials.floors && (selectedMaterials.floors.type === 'tile' || selectedMaterials.floors.type === 'porcelain' || selectedMaterials.floors.type === 'mosaic')) {
+        if (selectedMaterials.floorsVariants && selectedMaterials.floorsVariants.length) {
+            livingFloorTileArea = sumTileLayingAreaFromVariants(selectedMaterials.floorsVariants, laminateArea);
+        } else if (selectedMaterials.floors && isTileLayingType(selectedMaterials.floors.type)) {
             livingFloorTileArea = parseFloat((selectedMaterials.floors.area || '').toString().replace(' м²', '')) || laminateArea;
         }
         const totalTileArea = tileTotalArea + livingFloorTileArea;
@@ -3354,20 +3712,42 @@ function buildMaterialsListHtml() {
 
         let mosaicSqm = 0;
         let nonMosaicSqm = 0;
-        if (selectedMaterials.wallTile && selectedMaterials.wallTile.type === 'mosaic') mosaicSqm += wallTileArea;
-        else if (selectedMaterials.wallTile) nonMosaicSqm += wallTileArea;
-        if (selectedMaterials.bathroomFloors && selectedMaterials.bathroomFloors.type === 'mosaic') mosaicSqm += floorTileArea;
-        else if (selectedMaterials.bathroomFloors) nonMosaicSqm += floorTileArea;
+        getBathroomWallTileVariants(selectedMaterials).forEach(function (wt) {
+            if (!wt || !isTileLayingType(wt.type)) return;
+            const sq = wt.area ? parseAreaStringToSqm(wt.area) : null;
+            const a = (sq != null && sq > 0) ? sq : wallTileArea;
+            if (wt.type === 'mosaic') mosaicSqm += a;
+            else nonMosaicSqm += a;
+        });
+        getBathroomFloorFinishVariants(selectedMaterials).forEach(function (bf) {
+            if (!bf || !isTileLayingType(bf.type)) return;
+            const sq = bf.area ? parseAreaStringToSqm(bf.area) : null;
+            const a = (sq != null && sq > 0) ? sq : floorTileArea;
+            if (bf.type === 'mosaic') mosaicSqm += a;
+            else nonMosaicSqm += a;
+        });
         nonMosaicSqm += livingWallTileForBasket + apronTileSqmForGlue;
-        if (selectedMaterials.floors && selectedMaterials.floors.type === 'mosaic') mosaicSqm += livingFloorTileArea;
-        else if (selectedMaterials.floors && (selectedMaterials.floors.type === 'tile' || selectedMaterials.floors.type === 'porcelain')) nonMosaicSqm += livingFloorTileArea;
+        if (selectedMaterials.floorsVariants && selectedMaterials.floorsVariants.length) {
+            selectedMaterials.floorsVariants.forEach(function (f) {
+                if (!f || !isTileLayingType(f.type)) return;
+                const sq = f.area ? parseAreaStringToSqm(f.area) : null;
+                const a = (sq != null && sq > 0) ? sq : livingFloorTileArea;
+                if (f.type === 'mosaic') mosaicSqm += a;
+                else nonMosaicSqm += a;
+            });
+        } else if (selectedMaterials.floors && isTileLayingType(selectedMaterials.floors.type)) {
+            if (selectedMaterials.floors.type === 'mosaic') mosaicSqm += livingFloorTileArea;
+            else nonMosaicSqm += livingFloorTileArea;
+        }
 
         if (totalTileArea > 0) {
             add(7, 14886543, totalTileArea * 5 / 25); add(7, 10977309, totalTileArea / 4); add(7, 81933319, 1); add(7, 82372585, 1);
             if (mosaicSqm > 0) add(7, 81947846, 1); // Гладилка Intek 4×4 — мозаика
-            /* Сверла копьевидные по керамике Neolaser 6/8/10 мм — при плитке, керамограните или мозаике */
-            [89424572, 89424578, 89424579].forEach(function (id) { add(7, id, 1); });
             /* 86220370, 15649363, 15649371, 605125 — см. блок ниже: мин. 1 шт., если артикула ещё нет в корзине по этапам */
+        }
+        /* Сверла копьевидные по керамике Neolaser 6/8/10 мм — только при работах с плиткой в справочнике */
+        if (hasTileWorkScope(selectedMaterials)) {
+            [89424572, 89424578, 89424579].forEach(function (id) { add(7, id, 1); });
         }
         const tileMusorBags = tileMusorBagsFromAreaSqm(ceramicPorcelainTileAreaSqm(selectedMaterials, calc));
         if (tileMusorBags > 0) {
@@ -3579,16 +3959,12 @@ function buildMaterialsListHtml() {
             add(8, 15649398, 1);
         }
 
-        /* Лезвия 82285188: ламинат / ковролин / ПВХ — 1 уп. на 50 м² пола */
-        if (selectedMaterials.floors && ['laminate', 'carpet', 'pvc', 'linoleum'].includes(selectedMaterials.floors.type) && laminateArea > 0) {
-            add(8, 82285188, laminateArea / 50);
-        }
+        /* Лезвия, подложка, клей — по каждому выбранному жилому покрытию (этап 8–9) */
+        addLivingFloorCoveringBasketItems(add, selectedMaterials, laminateArea);
 
-        // ЭТАП 9 — напольные покрытия
-        if (selectedMaterials.floors && (selectedMaterials.floors.type === 'laminate' || selectedMaterials.floors.type === 'parquet') && laminateArea > 0) add(9, 89421413, laminateArea / 5.04);
-
-        if (selectedMaterials.floors && (selectedMaterials.floors.type === 'carpet' || selectedMaterials.floors.type === 'pvc') && laminateArea > 0) {
-            add(9, 17750553, laminateArea / 35); add(9, 15087997, 1);
+        const livingFloorMusorBags = computeLivingFloorFinishMusorBags(selectedMaterials, calc);
+        if (livingFloorMusorBags > 0) {
+            add(9, 17968499, livingFloorMusorBags / MUSOR_BAGS_PER_PACK);
         }
 
         /* Мешки для пылесоса 86262884: при выборе напольного покрытия жилых — 1 уп., если суммарно по этапам 2–10 ещё < 1 шт. (этап 2 с демонтажом может уже добавить). */
@@ -3598,7 +3974,7 @@ function buildMaterialsListHtml() {
             const vb = stage[s].get(VACUUM_BAGS_SKU);
             if (vb) vacuumBagsInStages += vb;
         }
-        if (selectedMaterials.floors && vacuumBagsInStages < 1) {
+        if (hasLivingFloorCovering && vacuumBagsInStages < 1) {
             add(9, 86262884, 1);
         }
 
@@ -3761,10 +4137,9 @@ function buildMaterialsListHtml() {
         const hasGypsumBoxSprav = (selectedMaterials.partitions || []).some(p => p.type === 'gypsumBox')
             || (selectedMaterials.additionalWallTile || []).some(m => m.type === 'box' && (parseInt(m.quantity, 10) || 0) > 0);
         const hasWallTileOrPorcelainOnWalls = Boolean(
-            (selectedMaterials.walls && (selectedMaterials.walls.type === 'tile' || selectedMaterials.walls.type === 'porcelain'))
-            || (selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length > 1)
-            || selectedMaterials.wallTile
-            || (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.some(m => m.type === 'ceramicGraniteApron'))
+            livingWallTileForBasket > 0
+            || bathWallTileForGlue > 0
+            || apronTileSqmForGlue > 0
         );
         const hasPgbPartitionSprav = pgbPartitionSqm > 0;
         const hasFoamPartitionSprav = foamPartitionSqm > 0;
@@ -3863,12 +4238,12 @@ function buildMaterialsListHtml() {
         if (totalTileArea > 0 && dexterTape48InStages === 0) {
             add(7, 82664800, 1);
         }
-        if (selectedMaterials.floors && selectedMaterials.floors.type === 'laminate' && laminateArea > 0) {
-            add(7, 82664800, laminateArea / 50);
-        }
-        if (selectedMaterials.floors && selectedMaterials.floors.type === 'pvc' && laminateArea > 0) {
-            add(7, 82664800, laminateArea / 50);
-        }
+        getLivingFloorFinishVariants(selectedMaterials).forEach(function (f) {
+            if (!f || !f.type) return;
+            const sq = livingFloorVariantSqm(f, laminateArea);
+            if (f.type === 'laminate' && sq > 0) add(7, 82664800, sq / 50);
+            if (f.type === 'pvc' && sq > 0) add(7, 82664800, sq / 50);
+        });
         if (selectedMaterials.walls && selectedMaterials.walls.type === 'paint') {
             const paintRoomPerimeterM = perimeter > 0 ? perimeter : (ceilingHeight > 0 && wallMaterialArea > 0 ? wallMaterialArea / ceilingHeight : 0);
             if (paintRoomPerimeterM > 0) {
@@ -4038,13 +4413,20 @@ function buildMaterialsListHtml() {
     }
 
 function getBasketUrl(lastCalc, ch) {
+    return getBasketUrlForStageRange(lastCalc, ch, 2, 10);
+}
+
+function getBasketUrlForStageRange(lastCalc, ch, minStage, maxStage) {
     const { stage, merged } = getBasketProducts(lastCalc, ch);
     const parts = [];
     const seen = new Set();
+    const minS = Math.max(2, minStage || 2);
+    const maxS = Math.min(10, maxStage || 10);
     const LEMANA_BASKET_BASE = 'https://novosibirsk.lemanapro.ru/basket/?products=';
     const LEMANA_SHARE = '&share_cart=1';
-    for (let s = 2; s <= 10; s++) {
-        stage[s].forEach((qty, id) => {
+    for (let s = minS; s <= maxS; s++) {
+        if (!stage[s]) continue;
+        stage[s].forEach(function (qty, id) {
             const sid = String(id);
             if (!seen.has(sid)) {
                 const q = merged.get(sid) || 0;
@@ -4055,6 +4437,54 @@ function getBasketUrl(lastCalc, ch) {
     }
     if (parts.length === 0) return '';
     return LEMANA_BASKET_BASE + parts.join(',') + LEMANA_SHARE;
+}
+
+/** HTML-панель корзины по диапазону этапов (2–7 черновые, 8–10 финишные). */
+function buildBasketStageRangePanelHtml(lastCalc, ch, minStage, maxStage) {
+    const { stage, merged } = getBasketProducts(lastCalc, ch);
+    const entries = [];
+    const seen = new Set();
+    const minS = Math.max(2, minStage || 2);
+    const maxS = Math.min(10, maxStage || 10);
+    for (let s = minS; s <= maxS; s++) {
+        if (!stage[s]) continue;
+        stage[s].forEach(function (qty, id) {
+            const sku = String(id);
+            if (seen.has(sku)) return;
+            seen.add(sku);
+            const q = Math.max(1, Math.ceil(parseFloat(String(merged.get(sku))) || 0));
+            entries.push([sku, q]);
+        });
+    }
+    entries.sort(function (a, b) { return parseInt(a[0], 10) - parseInt(b[0], 10); });
+    if (!entries.length) {
+        return '<p class="est-panel-empty">Нет позиций для выбранных работ.</p>';
+    }
+    let rows = '';
+    entries.forEach(function (e) {
+        rows += '<tr><td class="sku">' + escapeHtmlText(e[0]) + '</td><td class="est-basket-qty">' + escapeHtmlText(String(e[1])) + '</td></tr>';
+    });
+    let html = '<table class="est-basket-table"><thead><tr><th>Артикул</th><th>Кол-во</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    const url = getBasketUrlForStageRange(lastCalc, ch, minStage, maxStage);
+    if (url) {
+        html += '<p class="est-panel-basket-link"><a href="' + escapeHtmlText(url) + '" target="_blank" rel="noopener noreferrer">Корзина Леруа Мерлен</a></p>';
+    }
+    return html;
+}
+
+/** Лента «Последовательность этапов» для мобильной панели. */
+function buildScheduleTimelinePanelHtml(calc) {
+    const scheduleData = buildScheduleData(calc);
+    if (!scheduleData.stages || !scheduleData.stages.length) {
+        return '<p class="est-panel-empty">Нет этапов для выбранных работ.</p>';
+    }
+    let html = '<div class="sprav-schedule-wrap">';
+    html += '<p class="est-schedule-summary">' + escapeHtmlText(
+        scheduleData.totalHours + ' ч · ' + scheduleData.totalDays + ' календ. дн. (1 раб. день = ' + scheduleData.hDay + ' ч)'
+    ) + '</p>';
+    html += buildScheduleTimelineHtml(scheduleData);
+    html += '</div>';
+    return html;
 }
 
     function parseEstimateInputNumber(v) {
@@ -4535,6 +4965,30 @@ function getBasketUrl(lastCalc, ch) {
         }
     }
 
+    const ESTIMATE_ADDITIONAL_SECTION_NAME = 'ДОПОЛНИТЕЛЬНЫЕ И ПРОЧИЕ РАБОТЫ';
+
+    function buildEstimateGiftNoteRowHtml() {
+        return '<tr class="estimate-gift-note">' +
+            '<td colspan="6">' +
+            '<div class="estimate-gift-note__box">' +
+            '<span class="estimate-gift-note__badge">В подарок</span>' +
+            '<div class="estimate-gift-note__body">' +
+            '<p class="estimate-gift-note__lead">При заказе <strong>комплекса работ</strong></p>' +
+            '<ul class="estimate-gift-note__perks" aria-label="Бесплатно при комплексе работ">' +
+            '<li>Выезд на замер</li>' +
+            '<li>Составление сметы</li>' +
+            '<li>Технический проект</li>' +
+            '</ul>' +
+            '<p class="estimate-gift-note__accent">Бесплатно</p>' +
+            '</div></div></td></tr>';
+    }
+
+    function buildEstimateGiftNoteExcelRowHtml() {
+        return '<tr class="subcategory"><td colspan="5" style="background:#f0f7ff;color:#2f5597;font-style:normal;padding:10px 8px;line-height:1.45;">' +
+            'При заказе комплекса работ бесплатно: выезд на замер, составление сметы, технический проект' +
+            '</td></tr>';
+    }
+
     function buildEstimateTableHtml(estimateData) {
         const docTitle = (estimateData && estimateData.documentTitle) ? estimateData.documentTitle : 'Смета на ремонт';
         const titleSafe = escapeHtmlText(docTitle);
@@ -4579,8 +5033,12 @@ function getBasketUrl(lastCalc, ch) {
                     html += buildEstimateWorkRowHtml(idSuf, item);
                 });
             });
-            
-            // Убираем пустые строки для компактности
+
+            if (section.name === ESTIMATE_ADDITIONAL_SECTION_NAME && section.subsections.some(function (sub) {
+                return sub.items && sub.items.length > 0;
+            })) {
+                html += buildEstimateGiftNoteRowHtml();
+            }
         });
         
         // Итоговая стоимость
@@ -4630,8 +5088,6 @@ function exportEstimateToExcel(estimateData) {
             </head>
             <body>
                 <h2 style="text-align: center; color: #2F5597;">${titleSafe}</h2>
-                <p style="text-align: center; color: #666;">Документ предназначен для рассылки подрядчикам с целью объективного расчета стоимости ремонта по данному проекту.</p>
-                <br>
                 <table>
                     <thead>
                         <tr>
@@ -4677,7 +5133,13 @@ function exportEstimateToExcel(estimateData) {
                     `;
                 });
             });
-            
+
+            if (section.name === ESTIMATE_ADDITIONAL_SECTION_NAME && section.subsections.some(function (sub) {
+                return sub.items && sub.items.length > 0;
+            })) {
+                htmlContent += buildEstimateGiftNoteExcelRowHtml();
+            }
+
             htmlContent += `<tr><td colspan="5">&nbsp;</td></tr>`; // Пустая строка между разделами
         });
         
@@ -4706,17 +5168,29 @@ function exportEstimateToExcel(estimateData) {
             </html>
         `;
         
-        // Создаем и скачиваем файл
-        const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', downloadFilename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadExcelHtmlFile(htmlContent, downloadFilename);
     }
+
+function excelExportFilenameStem(prefix, address) {
+    const addrPart = sanitizeEstimateFilenamePart(address);
+    const dateStr = new Date().toISOString().split('T')[0];
+    return addrPart
+        ? (prefix + '_' + addrPart.replace(/\s+/g, '_') + '_' + dateStr + '.xls')
+        : (prefix + '_' + dateStr + '.xls');
+}
+
+function downloadExcelHtmlFile(htmlContent, downloadFilename) {
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', downloadFilename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
 
 function spravCalculateEstimate(apartmentTypeForGarbage) {
     return buildEstimateTableHtml(generateDetailedEstimateData(apartmentTypeForGarbage));
@@ -4800,6 +5274,81 @@ function scheduleSumServiceQty(arr) {
     return s;
 }
 
+/** «Точки» el.Points для формул штробления/кабеля: розетки + выключатели + терморегулятор (без п.м. и монтажных строк). */
+function scheduleSumElectricalPoints(electrical) {
+    if (!electrical || !electrical.length) return 0;
+    const POINT_TYPES = new Set(['outlets', 'switches', 'thermostat']);
+    let s = 0;
+    electrical.forEach(function (item) {
+        if (!item || !POINT_TYPES.has(item.type)) return;
+        const q = parseFloat(String(item.quantity != null ? item.quantity : 1).replace(',', '.'));
+        s += (!isNaN(q) && q > 0) ? q : 1;
+    });
+    return s;
+}
+
+function scheduleSumAdditionalFloorSqmByType(floorType) {
+    let sum = 0;
+    const lists = [selectedMaterials.additionalFloors, selectedMaterials.additionalBathroomFloors];
+    lists.forEach(function (arr) {
+        (arr || []).forEach(function (m) {
+            if (!m || m.type !== floorType) return;
+            const sq = scheduleAreaFromMaterial(m);
+            if (sq > 0) sum += sq;
+        });
+    });
+    return sum;
+}
+
+function scheduleLivingFloorCoveringArea(calc) {
+    const sm = selectedMaterials;
+    let area = 0;
+    const variants = sm.floorsVariants && sm.floorsVariants.length
+        ? sm.floorsVariants
+        : (sm.floors ? [sm.floors] : []);
+    variants.forEach(function (x) {
+        if (!x || x.type === 'skirting') return;
+        const sq = x.area ? parseAreaStringToSqm(x.area) : null;
+        if (sq != null && sq > 0) area += sq;
+    });
+    if (!(area > 0)) {
+        area = (calc.materials && calc.materials.laminate) || calc.livingArea || 0;
+    }
+    return area;
+}
+
+/** Площадь укладки плитки/керамогранита/мозаики для этапа «Плиточные работы» (как tileTotalArea в корзине). */
+function scheduleTileLayingAreaSqm(calc) {
+    const sm = selectedMaterials;
+    if (!sm || !hasTileWorkScope(sm)) return 0;
+    const c = calc || {};
+    const mats = c.materials || {};
+    let wallMaterialArea = c.totalWallArea || 0;
+    if (sm.walls && sm.walls.area) {
+        const w = parseAreaStringToSqm(sm.walls.area);
+        if (w != null && w > 0) wallMaterialArea = w;
+    }
+    const floorTileArea = mats.floorTile || 0;
+    const wallTileArea = mats.wallTile || 0;
+    let livingWallTile = 0;
+    if (sm.wallsVariants && sm.wallsVariants.length) {
+        livingWallTile = sumTileLayingAreaFromVariants(sm.wallsVariants, wallMaterialArea);
+    } else if (sm.walls && isTileLayingType(sm.walls.type)) {
+        const wsq = sm.walls.area ? parseAreaStringToSqm(sm.walls.area) : null;
+        livingWallTile = (wsq != null && wsq > 0) ? wsq : wallMaterialArea;
+    }
+    let apronSqm = 0;
+    (sm.additionalWalls || []).forEach(function (m) {
+        if (m && m.type === 'ceramicGraniteApron' && m.area) {
+            const sq = parseAreaStringToSqm(m.area);
+            if (sq != null && sq > 0) apronSqm += sq;
+        }
+    });
+    const bathFloor = sumTileLayingAreaFromVariants(getBathroomFloorFinishVariants(sm), floorTileArea);
+    const bathWall = sumTileLayingAreaFromVariants(getBathroomWallTileVariants(sm), wallTileArea);
+    return bathFloor + bathWall + livingWallTile + apronSqm;
+}
+
 function scheduleAreaFromMaterial(m) {
     if (!m || !m.area) return 0;
     const sq = parseAreaStringToSqm(m.area);
@@ -4831,25 +5380,20 @@ function scheduleBuildVars(calc) {
     if (wa) livingWall = (wa.living || 0) + (wa.kitchen || 0) + (wa.hallway || 0);
     else livingWall = Math.max(0, (c.totalWallArea || 0) - (mats.wallTile || 0));
     const bathroomWall = mats.wallTile || (c.bathroomCalc && c.bathroomCalc.wallArea) || 0;
-    const laminateArea = mats.laminate || c.livingArea || 0;
+    const livingFloorFallback = mats.laminate || c.livingArea || 0;
     const bathroomFloor = mats.floorTile || (c.bathroomCalc && c.bathroomCalc.floorArea) || 0;
     const ceilingArea = c.totalCeilingArea || mats.ceiling || 0;
     let totalArea = c.totalApartmentArea || c.totalFloorArea || 0;
-    if (!(totalArea > 0)) totalArea = laminateArea + bathroomFloor;
+    if (!(totalArea > 0)) totalArea = livingFloorFallback + bathroomFloor;
     if (!(totalArea > 0)) totalArea = 50;
-    const tileArea = (mats.floorTile || 0) + (mats.wallTile || 0);
-    let screedArea = 0;
-    let selfLevelArea = 0;
-    (selectedMaterials.additionalFloors || []).forEach(function (m) {
-        const sq = scheduleAreaFromMaterial(m);
-        if (m.type === 'screed' && sq > 0) screedArea += sq;
-        if (m.type === 'selfLeveling' && sq > 0) selfLevelArea += sq;
-    });
+    const tileArea = scheduleTileLayingAreaSqm(c);
+    let screedArea = scheduleSumAdditionalFloorSqmByType('screed');
+    let selfLevelArea = scheduleSumAdditionalFloorSqmByType('selfLeveling');
     let wallTileBoxQty = 0;
     (selectedMaterials.additionalWallTile || []).forEach(function (m) {
         if (m.type === 'box') wallTileBoxQty += parseInt(String(m.quantity), 10) || 0;
     });
-    let electricalPoints = scheduleSumServiceQty(selectedMaterials.electrical);
+    let electricalPoints = scheduleSumElectricalPoints(selectedMaterials.electrical);
     if (selectedMaterials.electrical && selectedMaterials.electrical.length > 0 && electricalPoints <= 0) {
         electricalPoints = 1;
     }
@@ -4859,6 +5403,7 @@ function scheduleBuildVars(calc) {
     const hasPlumbing = selectedMaterials.plumbing && selectedMaterials.plumbing.length > 0;
     const hasPanel = hasElectrical && selectedMaterials.electrical.some(function (e) { return e.type === 'panel'; });
     const hasJunctionBoxes = hasElectrical && selectedMaterials.electrical.some(function (e) { return e.type === 'junctionBoxes'; });
+    const laminateArea = scheduleLivingFloorCoveringArea(c);
   return {
         wallArea: livingWall,
         bathroomWall: bathroomWall,
@@ -5004,19 +5549,19 @@ function buildScheduleData(calc) {
     const hasPartitions = sm.partitions && sm.partitions.length > 0;
     const hasWallPlaster = sm.additionalWalls && sm.additionalWalls.some(function (m) { return m.type === 'plaster'; });
     const hasWallPutty = sm.additionalWalls && sm.additionalWalls.some(function (m) { return isWallPuttySpravType(m.type); });
-    const wallsType = sm.walls ? sm.walls.type : null;
-    const hasWallFinish = wallsType === 'wallpaper' || wallsType === 'paint' || wallsType === 'decorative' || hasWallPutty;
+    const wallVariants = sm.wallsVariants && sm.wallsVariants.length ? sm.wallsVariants : (sm.walls ? [sm.walls] : []);
+    const hasWallWallpaper = wallVariants.some(function (w) { return w && w.type === 'wallpaper'; });
+    const hasWallPaintDecor = wallVariants.some(function (w) { return w && (w.type === 'paint' || w.type === 'decorative'); });
+    const hasWallFinish = hasWallWallpaper || hasWallPaintDecor || hasWallPutty;
     const hasBathPlaster = sm.additionalWallTile && sm.additionalWallTile.some(function (m) { return m.type === 'plaster'; });
-    const hasTileWork = Boolean(sm.bathroomFloors || sm.wallTile) ||
-        (sm.walls && (sm.walls.type === 'tile' || sm.walls.type === 'porcelain')) ||
-        (sm.floors && (sm.floors.type === 'tile' || sm.floors.type === 'porcelain' || sm.floors.type === 'mosaic'));
+    const hasTileWork = hasTileWorkScope(sm);
     const hasHeating = sm.plumbing && sm.plumbing.some(function (p) { return p.type === 'heating' || p.type === 'towelwarmer'; });
     const hasStretchCeiling = sm.ceilings && sm.ceilings.some(function (c) { return c.type === 'stretch' || c.type === 'fabric'; });
     const hasArmstrongCeiling = sm.ceilings && sm.ceilings.some(function (c) { return c.type === 'armstrong'; });
     const hasPlasterPaintCeiling = sm.ceilings && sm.ceilings.some(function (c) {
         return c.type === 'plasterCeiling' || c.type === 'paintCeiling' || c.type === 'puttyCeiling';
     });
-    const hasFloorCovering = Boolean(sm.floors);
+    const hasFloorCovering = Boolean(sm.floors) || (sm.floorsVariants && sm.floorsVariants.length > 0);
     const hasSkirting = sm.additionalFloors && sm.additionalFloors.some(function (m) { return m.type === 'skirting'; });
     const hasOutletsSwitches = sm.electrical && sm.electrical.some(function (e) {
         return e.type === 'outlets' || e.type === 'switches';
@@ -5045,7 +5590,7 @@ function buildScheduleData(calc) {
     if (hasWallPlaster && v.wallArea > 0) {
         schedulePushStage(stages, 'wallPlaster', 'Грунтовка и штукатурка стен (жилые)', [
             schedulePrimerTask('Грунтовка под штукатурку', v.wallArea, 'Sстен'),
-            { name: 'Штукатурка стен (вывод плоскостей)', raw: v.wallArea * 0.19, formula: 'Sстен×0,19' }
+            { name: 'Штукатурка стен (вывод плоскостей)', raw: v.wallArea * 0.38, formula: 'Sстен×0,38' }
         ]);
     }
 
@@ -5134,14 +5679,15 @@ function buildScheduleData(calc) {
         const puttyLayerFactor = puttyPaintOnly ? 3 : 2;
         schedulePushStage(stages, 'wallPutty', 'Грунтовка, шпаклёвка, шлифовка', [
             schedulePrimerTask('Грунтовка перед шпаклёвкой', v.wallArea, 'Sстен'),
-            { name: 'Шпаклёвка стен', raw: puttyLayerFactor * (v.wallArea * 0.22) / 3, formula: puttyLayerFactor + '×(S×0,22)/3' },
+            { name: 'Шпаклёвка стен', raw: 2 * puttyLayerFactor * (v.wallArea * 0.22) / 3, formula: '2×' + puttyLayerFactor + '×(S×0,22)/3' },
             { name: 'Шлифовка', raw: 2 * (v.wallArea * 0.09) / 3, formula: '2×(S×0,09)/3' }
         ]);
     }
 
     if (hasBathPlaster && v.bathroomWall > 0) {
         schedulePushStage(stages, 'bathPlaster', 'Подготовка санузла под плитку', [
-            { name: 'Грунтовка и штукатурка санузла под плитку', raw: v.bathroomWall * 0.28 + 4, formula: 'Sсан×0,28+4' }
+            schedulePrimerTask('Грунтовка перед плиткой', v.bathroomWall, 'Sсан'),
+            { name: 'Штукатурка санузла под плитку', raw: v.bathroomWall * 0.28 + 4, formula: 'Sсан×0,28+4' }
         ]);
     }
 
@@ -5152,11 +5698,18 @@ function buildScheduleData(calc) {
     }
 
     if (hasTileWork && v.tileArea > 0) {
-        schedulePushStage(stages, 'tile', 'Плиточные работы', [
-            schedulePrimerTask('Грунтовка перед плиткой', v.tileArea, 'Sплит'),
+        const tilePrimerSqm = hasBathPlaster
+            ? Math.max(0, v.tileArea - v.bathroomWall)
+            : v.tileArea;
+        const tileTasks = [];
+        if (tilePrimerSqm > 0) {
+            tileTasks.push(schedulePrimerTask('Грунтовка перед плиткой', tilePrimerSqm, 'Sплит'));
+        }
+        tileTasks.push(
             { name: 'Укладка плитки / керамогранита', raw: v.tileArea * 1.1, formula: 'Sплит×1,1' },
             { name: 'Затирка швов', raw: v.tileArea * 0.28, formula: 'Sплит×0,28' }
-        ]);
+        );
+        schedulePushStage(stages, 'tile', 'Плиточные работы', tileTasks);
     }
 
     if (v.hasPlumbing) {
@@ -5177,14 +5730,14 @@ function buildScheduleData(calc) {
         ]);
     }
 
-    if (wallsType === 'wallpaper' && v.wallArea > 0) {
+    if (hasWallWallpaper && v.wallArea > 0) {
         schedulePushStage(stages, 'wallpaper', 'Финиш стен: обои', [
             schedulePrimerTask('Грунтовка перед обоями', v.wallArea, 'Sстен'),
-            { name: 'Поклейка обоев', raw: 2 * (v.wallArea * 0.15) / 3, formula: '2×(S×0,15)/3' }
+            { name: 'Поклейка обоев', raw: 4 * (v.wallArea * 0.15) / 3, formula: '4×(S×0,15)/3' }
         ]);
     }
 
-    if ((wallsType === 'paint' || wallsType === 'decorative') && v.wallArea > 0) {
+    if (hasWallPaintDecor && v.wallArea > 0) {
         schedulePushStage(stages, 'wallPaint', 'Финиш стен: краска / декор', [
             { name: 'Окраска / декор', raw: v.wallArea * 0.2 + 4, formula: 'S×0,2+4' }
         ]);
@@ -5801,7 +6354,7 @@ function buildScheduleClipboardTimelineHtml(scheduleData, address) {
 
 function buildScheduleHtml(scheduleData) {
     if (!scheduleData || !scheduleData.stages || !scheduleData.stages.length) {
-        return '<p class="sprav-schedule-hint">Отметьте работы в справочнике и заполните «Исходный план», чтобы построить график.</p>';
+        return '';
     }
     const v = scheduleData.variables || {};
     let html = '<div class="sprav-schedule-wrap">';
@@ -5848,6 +6401,69 @@ function buildScheduleHtml(scheduleData) {
     return html;
 }
 
+function exportScheduleToExcel(calc, address) {
+    const scheduleData = buildScheduleData(calc);
+    if (!scheduleData || !scheduleData.stages || !scheduleData.stages.length) {
+        return false;
+    }
+    const title = scheduleClipboardHeading(address);
+    const rawAddr = address != null ? String(address).trim() : '';
+    const downloadFilename = excelExportFilenameStem('grafik_etapov', rawAddr);
+    let htmlContent = `
+            <!DOCTYPE html>
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+                    th { background-color: #4472C4; color: white; font-weight: bold; text-align: center; }
+                    .stage-row { background-color: #E7F0FD; font-weight: bold; color: #2F5597; }
+                    .number { text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h2 style="text-align: center; color: #2F5597;">${escapeHtmlText(title)}</h2>
+                <p style="text-align: center; color: #666;">${escapeHtmlText('График работ — ' + scheduleData.totalHours + ' ч, ' + scheduleData.totalDays + ' календ. дн. (1 раб. день = ' + scheduleData.hDay + ' ч)')}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">№</th>
+                            <th style="width: 25%;">Этап</th>
+                            <th style="width: 20%;">Срок</th>
+                            <th style="width: 42%;">Подработа</th>
+                            <th style="width: 8%;">Часы</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+    scheduleData.stages.forEach(function (st) {
+        const meta = st.metaLabel || scheduleStageMetaLabel(st, null);
+        const tasks = (st.tasks && st.tasks.length) ? st.tasks : [{ name: '—', hours: '', formula: '' }];
+        tasks.forEach(function (task, taskIdx) {
+            htmlContent += '<tr' + (taskIdx === 0 ? ' class="stage-row"' : '') + '>';
+            if (taskIdx === 0) {
+                htmlContent += '<td class="number">' + escapeHtmlText(String(st.num)) + '</td>';
+                htmlContent += '<td>' + escapeHtmlText(st.name || '') + '</td>';
+                htmlContent += '<td>' + escapeHtmlText(meta) + '</td>';
+            } else {
+                htmlContent += '<td></td><td></td><td></td>';
+            }
+            htmlContent += '<td>' + escapeHtmlText(task.name || '') + '</td>';
+            htmlContent += task.hours ? estimateExcelNumericCellHtml(task.hours) : '<td class="number"></td>';
+            htmlContent += '</tr>';
+        });
+    });
+    htmlContent += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+    downloadExcelHtmlFile(htmlContent, downloadFilename);
+    return true;
+}
+
 global.CmetShared = {
     selectedMaterials: selectedMaterials,
     parseAreaStringToSqm: parseAreaStringToSqm,
@@ -5867,8 +6483,13 @@ global.CmetShared = {
     collectEstimateFromMirror: collectEstimateFromMirror,
     getBasketProducts: getBasketProducts,
     getBasketUrl: getBasketUrl,
+    getBasketUrlForStageRange: getBasketUrlForStageRange,
+    buildBasketStageRangePanelHtml: buildBasketStageRangePanelHtml,
+    buildScheduleTimelinePanelHtml: buildScheduleTimelinePanelHtml,
     lemanaBasketProductParamFromSku: lemanaBasketProductParamFromSku,
     exportEstimateToExcel: exportEstimateToExcel,
+    exportScheduleToExcel: exportScheduleToExcel,
+    exportMaterialsLinksToExcel: exportMaterialsLinksToExcel,
     buildMaterialsListHtml: buildMaterialsListHtml,
     spravCalculateEstimate: spravCalculateEstimate,
     buildScheduleData: buildScheduleData,
