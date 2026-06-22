@@ -106,6 +106,7 @@ function selfLevelingEffectiveThicknessMm(thicknessMm) {
 const ESTIMATE_RATE_TILE_CERAMIC_SQM = 2600;
 const ESTIMATE_RATE_TILE_PORCELAIN_SQM = 2800;
 const ESTIMATE_RATE_TILE_CEMENT_GROUT_SQM = 150;
+const ESTIMATE_RATE_PRIMER_SQM = 50;
 
 function pushTileCementGrout(items, areaSqm) {
     const a = parseFloat(areaSqm) || 0;
@@ -173,10 +174,10 @@ function pushWallAcrylicPrimerLine(items, totalAreaSq) {
     if (sq <= 0) return;
     items.push({
         name: 'Грунтовка акриловая стен',
-        rate: 60,
+        rate: ESTIMATE_RATE_PRIMER_SQM,
         quantity: sq.toFixed(1),
         unit: 'кв.м.',
-        total: (sq * 60).toFixed(1)
+        total: (sq * ESTIMATE_RATE_PRIMER_SQM).toFixed(1)
     });
 }
 
@@ -320,10 +321,10 @@ function pushFloorPrimerLine(items, totalAreaSq) {
     if (sq <= 0) return;
     items.push({
         name: 'Грунтовка пола',
-        rate: 60,
+        rate: ESTIMATE_RATE_PRIMER_SQM,
         quantity: sq.toFixed(1),
         unit: 'кв.м.',
-        total: (sq * 60).toFixed(1)
+        total: (sq * ESTIMATE_RATE_PRIMER_SQM).toFixed(1)
     });
 }
 
@@ -332,10 +333,10 @@ function pushBathroomWallPrimerLine(items, totalAreaSq) {
     if (sq <= 0) return;
     items.push({
         name: 'Грунтовка стен',
-        rate: 60,
+        rate: ESTIMATE_RATE_PRIMER_SQM,
         quantity: sq.toFixed(1),
         unit: 'кв.м.',
-        total: (sq * 60).toFixed(1)
+        total: (sq * ESTIMATE_RATE_PRIMER_SQM).toFixed(1)
     });
 }
 
@@ -375,11 +376,11 @@ function floorFinishWorkRow(type) {
     let floorWorkName = "";
     switch (type) {
         case 'laminate':
-            floorWorkRate = 950;
+            floorWorkRate = 650;
             floorWorkName = "Укладка ламината";
             break;
         case 'pvc':
-            floorWorkRate = 950;
+            floorWorkRate = 650;
             floorWorkName = "Укладка ПВХ плитки";
             break;
         case 'tile':
@@ -395,7 +396,7 @@ function floorFinishWorkRow(type) {
             floorWorkName = "Укладка мозаики";
             break;
         case 'parquet':
-            floorWorkRate = 1200;
+            floorWorkRate = 950;
             floorWorkName = "Укладка паркета";
             break;
         case 'linoleum':
@@ -403,7 +404,7 @@ function floorFinishWorkRow(type) {
             floorWorkName = "Укладка линолеума";
             break;
         case 'carpet':
-            floorWorkRate = 950;
+            floorWorkRate = 650;
             floorWorkName = "Укладка ковролина";
             break;
         default:
@@ -2368,10 +2369,10 @@ function exportMaterialsLinksToExcel(address) {
                 const primerQty = livingCeilingArea * ceilingPrimerLayers;
                 ceilingSection.subsections[0].items.push({
                     name: ceilingPrimerName(ceilingPrimerLayers),
-                    rate: 60,
+                    rate: ESTIMATE_RATE_PRIMER_SQM,
                     quantity: primerQty.toFixed(1),
                     unit: "кв.м.",
-                    total: (primerQty * 60).toFixed(1)
+                    total: (primerQty * ESTIMATE_RATE_PRIMER_SQM).toFixed(1)
                 });
             }
 
