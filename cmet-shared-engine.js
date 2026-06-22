@@ -102,6 +102,10 @@ function selfLevelingEffectiveThicknessMm(thicknessMm) {
     return LAYER_THICKNESS_BASE_MM.selfLeveling;
 }
 
+/** Расценки укладки керамической плитки и керамогранита в смете (₽/кв.м.). */
+const ESTIMATE_RATE_TILE_CERAMIC_SQM = 2600;
+const ESTIMATE_RATE_TILE_PORCELAIN_SQM = 2800;
+
 /** Тариф работы «Наливной пол» в смете (₽/м²) по толщине слоя из подраздела (пусто — база 5 мм → 400). */
 function selfLevelingWorkRatePerSqm(thicknessMm) {
     const t = selfLevelingEffectiveThicknessMm(thicknessMm);
@@ -1422,11 +1426,11 @@ function buildMaterialsListHtml() {
                         wallWorkName = "Установка панелей";
                         break;
                     case 'tile':
-                        wallWorkRate = 3000;
+                        wallWorkRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
                         wallWorkName = "Укладка керамической плитки на стенах";
                         break;
                     case 'porcelain':
-                        wallWorkRate = 3300;
+                        wallWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
                         wallWorkName = "Укладка керамогранита на стенах";
                         break;
                     case 'plaster':
@@ -1492,7 +1496,7 @@ function buildMaterialsListHtml() {
                     
                     switch(additionalMaterial.type) {
                         case 'ceramicGraniteApron':
-                            additionalWorkRate = 2800;
+                            additionalWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
                             additionalWorkName = "Укладка фартука из керамогранита";
                             break;
                         default:
@@ -1557,10 +1561,10 @@ function buildMaterialsListHtml() {
                 if (apronAreaSqm > 0) {
                     items.push({
                         name: "Укладка фартука из керамогранита",
-                        rate: 2800,
+                        rate: ESTIMATE_RATE_TILE_PORCELAIN_SQM,
                         quantity: apronAreaSqm.toFixed(1),
                         unit: "кв.м.",
-                        total: (apronAreaSqm * 2800).toFixed(1)
+                        total: (apronAreaSqm * ESTIMATE_RATE_TILE_PORCELAIN_SQM).toFixed(1)
                     });
                     pushTileCementGrout(items, apronAreaSqm);
                 }
@@ -1685,11 +1689,11 @@ function buildMaterialsListHtml() {
                     floorWorkName = "Укладка ПВХ плитки";
                     break;
                 case 'tile':
-                    floorWorkRate = 3000;
+                    floorWorkRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
                     floorWorkName = "Укладка керамической плитки";
                     break;
                 case 'porcelain':
-                    floorWorkRate = 3300;
+                    floorWorkRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
                     floorWorkName = "Укладка керамогранита";
                     break;
                 case 'mosaic':
@@ -1790,14 +1794,14 @@ function buildMaterialsListHtml() {
                         total: (bathroomPrimerQty * 60).toFixed(1)
                     });
 
-                    // Укладка на пол плитки (мозаика 3000, керамогранит 2800, стандартная 3000)
-                    let floorTileRate = 3000;
+                    // Укладка на пол плитки (мозаика 3000, керамогранит 2800, керамика 2600)
+                    let floorTileRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
                     let floorTileName = "Укладка на пол стандартной плитки";
                     if (selectedMaterials.bathroomFloors.type === 'mosaic') {
                         floorTileRate = 3000;
                         floorTileName = "Укладка мозаики на пол";
                     } else if (selectedMaterials.bathroomFloors.type === 'porcelain') {
-                        floorTileRate = 2800;
+                        floorTileRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
                         floorTileName = "Укладка керамогранита на пол";
                     }
                     floorTileSection.subsections[0].items.push({
@@ -1931,14 +1935,14 @@ function buildMaterialsListHtml() {
                         });
                     }
 
-                    // Облицовка стен плиткой (мозаика 3000, керамогранит 3300, стандартная 2600)
-                    let wallTileRate = 2600;
+                    // Облицовка стен плиткой (мозаика 3000, керамогранит 2800, керамика 2600)
+                    let wallTileRate = ESTIMATE_RATE_TILE_CERAMIC_SQM;
                     let wallTileName = "Облицовка стен стандартной плиткой";
                     if (selectedMaterials.wallTile.type === 'mosaic') {
                         wallTileRate = 3000;
                         wallTileName = "Облицовка стен мозаикой";
                     } else if (selectedMaterials.wallTile.type === 'porcelain') {
-                        wallTileRate = 3300;
+                        wallTileRate = ESTIMATE_RATE_TILE_PORCELAIN_SQM;
                         wallTileName = "Облицовка стен керамогранитом";
                     }
                     wallTileSection.subsections[0].items.push({
