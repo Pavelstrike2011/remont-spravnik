@@ -259,6 +259,10 @@
             border: 1px solid #ccc;
             border-radius: 12px;
             cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .category-card:active,
@@ -1901,75 +1905,69 @@
             }
 
             function setupMaterialCardPress(btn, onLongPress, onTap) {
-                var timer = null;
-                var longPressTriggered = false;
+                var pressTimer = null;
+                var longPressDone = false;
+                var activePointerId = null;
                 var startX = 0;
                 var startY = 0;
-                var suppressMouseUntil = 0;
+                var MOVE_PX = 14;
 
-                function clearTimer() {
-                    if (timer) {
-                        clearTimeout(timer);
-                        timer = null;
-                    }
+                function clearPressVisual() {
                     btn.classList.remove('is-holding');
+                    if (pressTimer) {
+                        clearTimeout(pressTimer);
+                        pressTimer = null;
+                    }
                 }
 
-                function start(clientX, clientY) {
-                    longPressTriggered = false;
-                    startX = clientX;
-                    startY = clientY;
+                btn.addEventListener('pointerdown', function (e) {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    activePointerId = e.pointerId;
+                    longPressDone = false;
+                    startX = e.clientX;
+                    startY = e.clientY;
                     btn.classList.add('is-holding');
-                    timer = setTimeout(function () {
-                        longPressTriggered = true;
-                        clearTimer();
+                    if (btn.setPointerCapture) {
+                        try { btn.setPointerCapture(e.pointerId); } catch (ignore) { /* old browsers */ }
+                    }
+                    pressTimer = setTimeout(function () {
+                        pressTimer = null;
+                        longPressDone = true;
+                        btn.classList.remove('is-holding');
                         onLongPress();
                     }, LONG_PRESS_MS);
-                }
+                });
 
-                function move(clientX, clientY) {
-                    if (!timer) return;
-                    if (Math.abs(clientX - startX) > 10 || Math.abs(clientY - startY) > 10) {
-                        clearTimer();
+                btn.addEventListener('pointermove', function (e) {
+                    if (e.pointerId !== activePointerId || !pressTimer) return;
+                    if (Math.abs(e.clientX - startX) > MOVE_PX || Math.abs(e.clientY - startY) > MOVE_PX) {
+                        clearPressVisual();
+                    }
+                });
+
+                function finishPointer(e) {
+                    if (e.pointerId !== activePointerId) return;
+                    activePointerId = null;
+                    clearPressVisual();
+                    if (btn.releasePointerCapture) {
+                        try { btn.releasePointerCapture(e.pointerId); } catch (ignore) { /* ignore */ }
                     }
                 }
 
-                function end(fromTouch) {
-                    var wasLong = longPressTriggered;
-                    clearTimer();
-                    if (!wasLong) onTap();
-                    longPressTriggered = false;
-                    if (fromTouch) suppressMouseUntil = Date.now() + 500;
-                }
+                btn.addEventListener('pointerup', finishPointer);
+                btn.addEventListener('pointercancel', finishPointer);
 
-                btn.addEventListener('touchstart', function (e) {
-                    suppressMouseUntil = Date.now() + 500;
-                    var t = e.touches[0];
-                    start(t.clientX, t.clientY);
-                }, { passive: true });
-                btn.addEventListener('touchmove', function (e) {
-                    var t = e.touches[0];
-                    move(t.clientX, t.clientY);
-                }, { passive: true });
-                btn.addEventListener('touchend', function (e) {
-                    e.preventDefault();
-                    end(true);
-                }, { passive: false });
-                btn.addEventListener('touchcancel', clearTimer);
-                btn.addEventListener('mousedown', function (e) {
-                    if (Date.now() < suppressMouseUntil) {
+                btn.addEventListener('click', function (e) {
+                    if (longPressDone) {
+                        longPressDone = false;
                         e.preventDefault();
+                        e.stopPropagation();
                         return;
                     }
-                    if (e.button !== 0) return;
-                    start(e.clientX, e.clientY);
+                    e.preventDefault();
+                    onTap();
                 });
-                btn.addEventListener('mousemove', function (e) {
-                    if (e.buttons !== 1) return;
-                    move(e.clientX, e.clientY);
-                });
-                btn.addEventListener('mouseup', end);
-                btn.addEventListener('mouseleave', clearTimer);
+
                 btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
             }
 
