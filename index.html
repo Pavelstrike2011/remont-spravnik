@@ -22,6 +22,39 @@
             font-size: 0.88rem;
             color: var(--muted);
         }
+        .hints-global-toggle {
+            flex-shrink: 0;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: #fff;
+            color: var(--accent2);
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .hints-global-toggle:hover { background: #f4f7fb; }
+        .hints-global-toggle[aria-pressed="true"] {
+            background: #eef4fb;
+            border-color: #a8bdd8;
+        }
+        body.hide-all-hints .calc-embed-hint,
+        body.hide-all-hints .sprav-schedule-hint,
+        body.hide-all-hints .panel-user-hint,
+        body.hide-all-hints .plan-field-hint,
+        body.hide-all-hints .works-first-hint,
+        body.hide-all-hints .note,
+        body.hide-all-hints .ref-electric-pcs-note,
+        body.hide-all-hints .sprav-full-basket-note,
+        body.hide-all-hints .sprav-estimate-native-hint,
+        body.hide-all-hints #userGuide,
+        body.hide-all-hints #userGuideShowBtn,
+        body.hide-all-hints .user-guide__tip,
+        body.hide-all-hints p.lead,
+        body.hide-all-hints .basket-qty-muted {
+            display: none !important;
+        }
         .page-contact__name { font-weight: 700; color: var(--accent2); }
         .page-contact a {
             color: var(--accent2);
@@ -922,6 +955,19 @@
 
         /* Исходный план (как в cmet calculator) */
         .plan-wrap { max-width: 720px; }
+        .plan-wrap__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .plan-wrap__head h2 {
+            margin: 0;
+            font-size: 1.05rem;
+            color: var(--accent2);
+        }
 
         /* Справка для новых пользователей */
         .user-guide {
@@ -1182,6 +1228,7 @@
     </style>
 </head>
 <body>
+    <script>try{if(localStorage.getItem('sprav_hide_all_hints_v1')==='1')document.body.classList.add('hide-all-hints');}catch(e){}</script>
     <header class="page-top">
         <div class="wrap">
             <p class="page-contact"><span class="page-contact__name">Павел</span> <a href="tel:+79529394194">+7&nbsp;952&nbsp;939-41-94</a></p>
@@ -1295,7 +1342,10 @@
             </section>
             <button type="button" class="user-guide-show-btn" id="userGuideShowBtn" hidden>Показать инструкцию и описание программы</button>
             <div class="plan-wrap">
-                <h2 style="margin:0 0 0.5rem;font-size:1.05rem;color:var(--accent2);">Параметры квартиры</h2>
+                <div class="plan-wrap__head">
+                    <h2>Параметры квартиры</h2>
+                    <button type="button" class="hints-global-toggle plan-btn-secondary" id="hideAllHintsBtn" aria-pressed="false" title="Скрыть справку, пояснения и подсказки по полям на всех вкладках">Убрать подсказки</button>
+                </div>
                 <p class="calc-embed-hint" style="margin:0 0 0.75rem;">Шаг 1: заполните поля и нажмите «Рассчитать площади». Затем отметьте нужные работы в разделах сверху (галочки слева в меню).</p>
                 <div class="plan-grid">
                     <div class="plan-field plan-field--full">
@@ -6803,6 +6853,32 @@
 
     initPlanPanel();
 
+    var HIDE_ALL_HINTS_LS = 'sprav_hide_all_hints_v1';
+
+    function applyHideAllHints(on) {
+        document.body.classList.toggle('hide-all-hints', !!on);
+        var globalBtn = document.getElementById('hideAllHintsBtn');
+        if (globalBtn) {
+            globalBtn.textContent = on ? 'Показать подсказки' : 'Убрать подсказки';
+            globalBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+    }
+
+    function initHideAllHints() {
+        var btn = document.getElementById('hideAllHintsBtn');
+        var on = document.body.classList.contains('hide-all-hints');
+        applyHideAllHints(on);
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            on = !document.body.classList.contains('hide-all-hints');
+            applyHideAllHints(on);
+            try {
+                if (on) localStorage.setItem(HIDE_ALL_HINTS_LS, '1');
+                else localStorage.removeItem(HIDE_ALL_HINTS_LS);
+            } catch (eHints) { /* ignore */ }
+        });
+    }
+
     function initUserGuide() {
         var guide = document.getElementById('userGuide');
         var hideBtn = document.getElementById('userGuideHideBtn');
@@ -6830,6 +6906,8 @@
             });
         }
     }
+
+    initHideAllHints();
     initUserGuide();
 })();
     </script>
