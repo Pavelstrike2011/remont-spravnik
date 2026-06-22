@@ -314,10 +314,12 @@
             inset: 0;
             z-index: 100;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 1rem;
+            padding: max(1.25rem, calc(env(safe-area-inset-top, 0px) + 14dvh)) 1rem 1rem;
             background: rgba(0, 0, 0, 0.45);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .qty-dialog-overlay[hidden] { display: none !important; }
@@ -328,6 +330,7 @@
             padding: 1.1rem;
             background: #fff;
             border-radius: 14px;
+            transition: transform 0.15s ease-out;
         }
 
         .qty-dialog__title {
@@ -1971,6 +1974,37 @@
                 btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
             }
 
+            function adjustQtyDialogForKeyboard() {
+                var panel = qtyDialog.querySelector('.qty-dialog');
+                if (!panel || qtyDialog.hidden) return;
+                panel.style.transform = '';
+                if (!window.visualViewport) return;
+                var vv = window.visualViewport;
+                var rect = panel.getBoundingClientRect();
+                var visibleBottom = vv.offsetTop + vv.height;
+                var margin = 16;
+                if (rect.bottom > visibleBottom - margin) {
+                    panel.style.transform = 'translateY(-' + Math.ceil(rect.bottom - visibleBottom + margin) + 'px)';
+                }
+            }
+
+            var qtyDialogViewportBound = false;
+            function bindQtyDialogViewport() {
+                if (qtyDialogViewportBound || !window.visualViewport) return;
+                qtyDialogViewportBound = true;
+                window.visualViewport.addEventListener('resize', adjustQtyDialogForKeyboard);
+                window.visualViewport.addEventListener('scroll', adjustQtyDialogForKeyboard);
+            }
+
+            function unbindQtyDialogViewport() {
+                if (!qtyDialogViewportBound || !window.visualViewport) return;
+                qtyDialogViewportBound = false;
+                window.visualViewport.removeEventListener('resize', adjustQtyDialogForKeyboard);
+                window.visualViewport.removeEventListener('scroll', adjustQtyDialogForKeyboard);
+                var panel = qtyDialog.querySelector('.qty-dialog');
+                if (panel) panel.style.transform = '';
+            }
+
             function openQtyDialog(cat, itemId) {
                 var cfg = getItemQtyConfig(cat, itemId);
                 var withThick = hasThicknessField(itemId);
@@ -2011,10 +2045,17 @@
                     qtyDialogThickInput.value = '';
                 }
                 qtyDialog.hidden = false;
-                setTimeout(function () { qtyDialogInput.focus(); qtyDialogInput.select(); }, 50);
+                bindQtyDialogViewport();
+                setTimeout(function () {
+                    qtyDialogInput.focus();
+                    qtyDialogInput.select();
+                    adjustQtyDialogForKeyboard();
+                    setTimeout(adjustQtyDialogForKeyboard, 280);
+                }, 50);
             }
 
             function closeQtyDialog() {
+                unbindQtyDialogViewport();
                 qtyDialog.hidden = true;
                 qtyEditContext = null;
             }
