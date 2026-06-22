@@ -1905,6 +1905,7 @@
                 var longPressTriggered = false;
                 var startX = 0;
                 var startY = 0;
+                var suppressMouseUntil = 0;
 
                 function clearTimer() {
                     if (timer) {
@@ -1933,14 +1934,16 @@
                     }
                 }
 
-                function end() {
+                function end(fromTouch) {
                     var wasLong = longPressTriggered;
                     clearTimer();
                     if (!wasLong) onTap();
                     longPressTriggered = false;
+                    if (fromTouch) suppressMouseUntil = Date.now() + 500;
                 }
 
                 btn.addEventListener('touchstart', function (e) {
+                    suppressMouseUntil = Date.now() + 500;
                     var t = e.touches[0];
                     start(t.clientX, t.clientY);
                 }, { passive: true });
@@ -1949,11 +1952,15 @@
                     move(t.clientX, t.clientY);
                 }, { passive: true });
                 btn.addEventListener('touchend', function (e) {
-                    if (longPressTriggered) e.preventDefault();
-                    end();
-                });
+                    e.preventDefault();
+                    end(true);
+                }, { passive: false });
                 btn.addEventListener('touchcancel', clearTimer);
                 btn.addEventListener('mousedown', function (e) {
+                    if (Date.now() < suppressMouseUntil) {
+                        e.preventDefault();
+                        return;
+                    }
                     if (e.button !== 0) return;
                     start(e.clientX, e.clientY);
                 });
