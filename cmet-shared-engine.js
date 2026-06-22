@@ -2230,7 +2230,7 @@ function buildMaterialsListHtml() {
                             name: 'Монтаж тёплого пола (электрического)',
                             rate: Math.round(ratePerSqm * 100) / 100,
                             quantity: area.toFixed(1),
-                            unit: 'м²',
+                            unit: 'кв.м.',
                             total: totalRub.toFixed(1)
                         });
                         return;
@@ -4067,21 +4067,43 @@ function getBasketUrl(lastCalc, ch) {
         return String(t || '').replace(/\u00a0/g, ' ');
     }
 
-    /** Числовой формат Excel (HTML): без принудительного «,0» у целых; дробные через General. */
-    function estimateExcelMsoFormat(n) {
-        if (n == null || !isFinite(Number(n))) return "'0'";
-        const x = Number(n);
-        return Math.abs(x - Math.round(x)) < 1e-9 ? "'0'" : "'General'";
-    }
-
-    function estimateExcelNumericCellHtml(n) {
+    /** Число для Excel HTML: x:num задаёт значение явно (без «число как текст» и без даты из «5.7»). */
+    function estimateExcelNumberCellHtml(n, decimalPlaces) {
         if (n == null || !isFinite(Number(n))) {
             return '<td class="number" style="text-align:right"></td>';
         }
         const x = Number(n);
-        const fmt = estimateExcelMsoFormat(x);
-        const val = Math.abs(x - Math.round(x)) < 1e-9 ? Math.round(x) : x;
-        return `<td class="number" style="mso-number-format:${fmt};text-align:right">${val}</td>`;
+        const dp = decimalPlaces == null ? null : Math.max(0, Math.min(4, Number(decimalPlaces) || 0));
+        const isInt = Math.abs(x - Math.round(x)) < 1e-9;
+        if (isInt) {
+            const v = Math.round(x);
+            return `<td class="number" x:num="${v}" style="mso-number-format:'0';text-align:right">${v}</td>`;
+        }
+        const places = dp != null ? dp : 1;
+        const numStr = x.toFixed(places);
+        const display = numStr.replace('.', ',');
+        return `<td class="number" x:num="${numStr}" style="mso-number-format:'0.${'0'.repeat(places)}';text-align:right">${escapeHtmlText(display)}</td>`;
+    }
+
+    /** Расценка и стоимость — целые. */
+    function estimateExcelNumericCellHtml(n) {
+        return estimateExcelNumberCellHtml(n, 0);
+    }
+
+    /** Объём: дробные м²/п.м. — число с одним знаком (x:num + 0.0), не текст @. */
+    function estimateExcelQtyCellHtml(n) {
+        return estimateExcelNumberCellHtml(n, 1);
+    }
+
+    /** Строка-заголовок раздела в Excel: inline-стили — Excel не всегда читает CSS-классы (особенно «category plumbing»). */
+    function estimateExcelCategoryRowHtml(sectionName) {
+        const tdStyle = 'background-color:#D9E2F3;color:#2F5597;font-weight:bold;padding:8px;border:1px solid #ddd;';
+        return `<tr class="category"><td colspan="5" style="${tdStyle}">${escapeHtmlText(sectionName)}</td></tr>`;
+    }
+
+    function estimateExcelSubcategoryRowHtml(subsectionName) {
+        const tdStyle = 'background-color:#E7F0FD;color:#2F5597;font-weight:bold;padding:8px;border:1px solid #ddd;';
+        return `<tr class="subcategory"><td colspan="5" style="${tdStyle}">${escapeHtmlText(subsectionName)}</td></tr>`;
     }
 
     function estimateRowRecalcCostFromRateQty(row) {
@@ -4531,12 +4553,7 @@ function getBasketUrl(lastCalc, ch) {
         let totalCost = 0;
         
         estimateData.sections.forEach((section, si) => {
-            // Заголовок раздела
-            let categoryClass = "category";
-            if (section.name === "САНТЕХНИЧЕСКИЕ РАБОТЫ") {
-                categoryClass = "category plumbing";
-            }
-            html += `<tr class="${categoryClass}"><td colspan="6"><strong>${escapeHtmlText(section.name)}</strong></td></tr>`;
+            html += `<tr class="category"><td colspan="6"><strong>${escapeHtmlText(section.name)}</strong></td></tr>`;
             
             // Подразделы и работы
             section.subsections.forEach((subsection, subi) => {
@@ -4591,7 +4608,7 @@ function exportEstimateToExcel(estimateData) {
         // Создаем HTML таблицу с красивым форматированием
         let htmlContent = `
             <!DOCTYPE html>
-            <html>
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
             <head>
                 <meta charset="UTF-8">
                 <style>
@@ -4599,7 +4616,6 @@ function exportEstimateToExcel(estimateData) {
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                     th { background-color: #4472C4; color: white; font-weight: bold; text-align: center; }
                     .category { background-color: #D9E2F3 !important; font-weight: normal !important; color: #2F5597 !important; padding: 8px; }
-                    .category.plumbing { background-color: #D9E2F3 !important; font-weight: normal !important; color: #2F5597 !important; padding: 8px; }
                     .subcategory { background-color: #E7F0FD; font-weight: bold; color: #2F5597; }
                     .number { text-align: right; }
                     .center { text-align: center; }
@@ -4628,22 +4644,17 @@ function exportEstimateToExcel(estimateData) {
         let totalCost = 0;
         
         estimateData.sections.forEach(section => {
-            // Заголовок раздела
-            let categoryClass = "category";
-            if (section.name === "САНТЕХНИЧЕСКИЕ РАБОТЫ") {
-                categoryClass = "category plumbing";
-            }
-            htmlContent += `<tr class="${categoryClass}"><td colspan="5">${escapeHtmlText(section.name)}</td></tr>`;
+            htmlContent += estimateExcelCategoryRowHtml(section.name);
             
             // Подразделы и работы
             section.subsections.forEach(subsection => {
                 if (subsection.name && String(subsection.name).trim() !== '') {
-                    htmlContent += `<tr class="subcategory"><td colspan="5">${escapeHtmlText(subsection.name)}</td></tr>`;
+                    htmlContent += estimateExcelSubcategoryRowHtml(subsection.name);
                 }
 
                 subsection.items.forEach(item => {
-                    const rate = parseFloat(item.rate);
-                    const quantity = parseFloat(item.quantity);
+                    const rate = parseEstimateInputNumber(item.rate);
+                    const quantity = parseEstimateInputNumber(item.quantity);
                     const rEff = isNaN(rate) ? 0 : rate;
                     const qEff = isNaN(quantity) ? 0 : quantity;
                     const cost = item.cost !== undefined && item.cost !== null && !isNaN(Number(item.cost))
@@ -4655,7 +4666,7 @@ function exportEstimateToExcel(estimateData) {
                         <tr class="work-item">
                             <td>${escapeHtmlText(item.name)}</td>
                             ${estimateExcelNumericCellHtml(rEff)}
-                            ${estimateExcelNumericCellHtml(qEff)}
+                            ${estimateExcelQtyCellHtml(qEff)}
                             <td class="center">${escapeHtmlText(item.unit != null ? item.unit : '')}</td>
                             ${estimateExcelNumericCellHtml(cost)}
                         </tr>
@@ -4680,7 +4691,7 @@ function exportEstimateToExcel(estimateData) {
             <tr class="total">
                 <td>Итоговая стоимость работ:</td>
                 <td colspan="3"></td>
-                <td class="number" style="mso-number-format:'0';text-align:right">${totalCost}</td>
+                <td class="number" x:num="${totalCost}" style="mso-number-format:'0';text-align:right">${totalCost}</td>
             </tr>
         `;
         
