@@ -1389,7 +1389,7 @@
         </div>
     </div>
 
-    <script src="cmet-shared-engine.js?v=20250623y"></script>
+    <script src="cmet-shared-engine.js?v=20250624b"></script>
     <script>
         (function () {
             var ROOM_CONFIGS = {
@@ -2736,6 +2736,42 @@
                 return lines.join('\n');
             }
 
+            function buildScheduleShareText() {
+                if (!estimateScheduleBody) return '';
+                var lines = [];
+                var addr = getEstimateExportAddress();
+                var heading = 'График работ';
+                if (addr) heading += ' — ' + addr;
+                lines.push(heading);
+                lines.push('');
+                var summary = estimateScheduleBody.querySelector('.est-schedule-summary');
+                if (summary) {
+                    lines.push(summary.textContent.replace(/\s+/g, ' ').trim());
+                    lines.push('');
+                }
+                var timeline = estimateScheduleBody.querySelector('.v2-timeline');
+                if (!timeline) return lines.join('\n');
+                timeline.querySelectorAll('.v2-item').forEach(function (item) {
+                    var titleEl = item.querySelector('.v2-title');
+                    var metaEl = item.querySelector('.v2-meta');
+                    if (titleEl) {
+                        lines.push('■ ' + titleEl.textContent.replace(/\s+/g, ' ').trim());
+                    }
+                    if (metaEl) {
+                        lines.push(metaEl.textContent.replace(/\s+/g, ' ').trim());
+                    }
+                    item.querySelectorAll('.v2-tasks li').forEach(function (li) {
+                        var hrsEl = li.querySelector('.v2-task-hrs');
+                        var hrs = hrsEl ? hrsEl.textContent.replace(/\s+/g, ' ').trim() : '';
+                        var name = li.textContent.replace(/\s+/g, ' ').trim();
+                        if (hrs) name = name.replace(hrs, '').trim();
+                        lines.push('    — ' + name + (hrs ? ' — ' + hrs : ''));
+                    });
+                    lines.push('');
+                });
+                return lines.join('\n').trim();
+            }
+
             function openMaxShareUrl(text) {
                 var url = 'https://max.ru/:share?text=' + encodeURIComponent(text);
                 var opened = window.open(url, '_blank', 'noopener,noreferrer');
@@ -3017,17 +3053,9 @@
             }
 
             function openMaxScheduleShare() {
-                if (!lastScheduleShareData || !CmetShared.buildScheduleClipboardTimelineText) {
+                var text = buildScheduleShareText();
+                if (!text || text.length < 20) {
                     alert('График работ не сформирован');
-                    return;
-                }
-                var text = CmetShared.buildScheduleClipboardTimelineText(
-                    lastScheduleShareData,
-                    getEstimateExportAddress(),
-                    { uppercaseStages: true }
-                );
-                if (!text) {
-                    alert('Нет этапов для отправки');
                     return;
                 }
                 openMaxShareUrl(text);

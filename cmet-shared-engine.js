@@ -6468,11 +6468,25 @@ function scheduleClipboardHeading(address) {
     return 'График работ';
 }
 
-/** Текст вертикальной ленты этапов для буфера обмена (как на экране). options.uppercaseStages — названия этапов ЗАГЛАВНЫМИ (для MAX :share). */
+function textToUpperCaseRu(str) {
+    return String(str || '').replace(/[a-zа-яё]/gi, function (ch) {
+        if (ch === 'ё') return 'Ё';
+        if (ch === 'Ё') return 'Ё';
+        const code = ch.charCodeAt(0);
+        if (code >= 0x0430 && code <= 0x044F) return String.fromCharCode(code - 0x20);
+        if (code >= 0x0061 && code <= 0x007A) return String.fromCharCode(code - 0x20);
+        return ch;
+    });
+}
+
+/** Текст вертикальной ленты этапов для буфера обмена (как на экране).
+ *  options.uppercaseStages — названия этапов ЗАГЛАВНЫМИ (для MAX).
+ *  options.includeFormulas — добавлять расчётные формулы в скобках (для копирования мастеру; в MAX — false). */
 function buildScheduleClipboardTimelineText(scheduleData, address, options) {
     if (!scheduleData || !scheduleData.stages || !scheduleData.stages.length) return '';
     options = options || {};
     const uppercaseStages = !!options.uppercaseStages;
+    const includeFormulas = options.includeFormulas !== false;
     const lines = [];
     lines.push(scheduleClipboardHeading(address));
     lines.push('');
@@ -6481,12 +6495,12 @@ function buildScheduleClipboardTimelineText(scheduleData, address, options) {
     scheduleData.stages.forEach(function (st) {
         const meta = st.metaLabel || scheduleStageMetaLabel(st, null);
         const title = st.num + '. ' + (st.name || '');
-        lines.push(uppercaseStages ? title.toLocaleUpperCase('ru-RU') : title);
+        lines.push(uppercaseStages ? textToUpperCaseRu(title) : title);
         lines.push(meta);
         (st.tasks || []).forEach(function (task) {
             let row = '  — ' + (task.name || '');
             if (task.hours) row += ' — ' + task.hours + ' ч';
-            if (task.formula) row += ' (' + task.formula + ')';
+            if (includeFormulas && task.formula) row += ' (' + task.formula + ')';
             lines.push(row);
         });
         lines.push('');
