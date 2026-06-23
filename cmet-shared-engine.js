@@ -106,6 +106,7 @@ function selfLevelingEffectiveThicknessMm(thicknessMm) {
 const ESTIMATE_RATE_TILE_CERAMIC_SQM = 2600;
 const ESTIMATE_RATE_TILE_PORCELAIN_SQM = 2800;
 const ESTIMATE_RATE_TILE_CEMENT_GROUT_SQM = 150;
+const ESTIMATE_RATE_MOSAIC_CEMENT_GROUT_SQM = 350;
 const ESTIMATE_RATE_PRIMER_SQM = 50;
 
 function pushTileCementGrout(items, areaSqm) {
@@ -118,6 +119,23 @@ function pushTileCementGrout(items, areaSqm) {
         unit: "кв.м.",
         total: (a * ESTIMATE_RATE_TILE_CEMENT_GROUT_SQM).toFixed(1)
     });
+}
+
+function pushMosaicCementGrout(items, areaSqm) {
+    const a = parseFloat(areaSqm) || 0;
+    if (a <= 0 || !items) return;
+    items.push({
+        name: "Затирка мозаики цементной затиркой",
+        rate: ESTIMATE_RATE_MOSAIC_CEMENT_GROUT_SQM,
+        quantity: a.toFixed(1),
+        unit: "кв.м.",
+        total: (a * ESTIMATE_RATE_MOSAIC_CEMENT_GROUT_SQM).toFixed(1)
+    });
+}
+
+function pushCementGroutForTileType(items, tileType, areaSqm) {
+    if (tileType === 'mosaic') pushMosaicCementGrout(items, areaSqm);
+    else if (tileType === 'tile' || tileType === 'porcelain' || tileType === 'ceramic') pushTileCementGrout(items, areaSqm);
 }
 
 /** Тариф работы «Наливной пол» в смете (₽/м²) по толщине слоя из подраздела (пусто — база 5 мм → 400). */
@@ -440,7 +458,7 @@ function buildLivingFloorsEstimateItems(sm) {
                 total: (a * row.floorWorkRate).toFixed(1)
             });
             if (f.type === 'tile' || f.type === 'porcelain' || f.type === 'mosaic') {
-                pushTileCementGrout(items, a);
+                pushCementGroutForTileType(items, f.type, a);
             }
         }
     });
@@ -508,7 +526,7 @@ function buildBathroomFloorEstimateItems(sm) {
                 total: (a * row.floorTileRate).toFixed(1)
             });
             if (f.type === 'porcelain' || f.type === 'ceramic' || f.type === 'tile' || f.type === 'mosaic') {
-                pushTileCementGrout(items, a);
+                pushCementGroutForTileType(items, f.type, a);
             }
         }
     });
@@ -617,10 +635,10 @@ function buildBathroomWallsEstimateItems(sm) {
         if (hasBathtub || hasPorcelainTrayScope(sm)) {
             items.push({
                 name: "Гидроизоляция стен",
-                rate: 600,
+                rate: 300,
                 quantity: 8,
                 unit: "кв.м.",
-                total: (8 * 600).toFixed(1)
+                total: (8 * 300).toFixed(1)
             });
         }
 
@@ -636,7 +654,7 @@ function buildBathroomWallsEstimateItems(sm) {
                 total: (a * row.wallTileRate).toFixed(1)
             });
             if (wt.type === 'porcelain' || wt.type === 'ceramic' || wt.type === 'tile' || wt.type === 'mosaic') {
-                pushTileCementGrout(items, a);
+                pushCementGroutForTileType(items, wt.type, a);
             }
         });
     }
@@ -2709,7 +2727,7 @@ function exportMaterialsLinksToExcel(address) {
                         workName = "Установка радиаторов отопления";
                         break;
                     case 'installation':
-                        workRate = 6000;
+                        workRate = 5000;
                         workName = "Установка каркаса инсталляции";
                         break;
                     case 'gypsumBoxes':
@@ -2820,10 +2838,10 @@ function exportMaterialsLinksToExcel(address) {
             if ((hasBathtubInPlumbing || porcelainTrayInstallQty > 0) && !selectedMaterials.wallTile) {
                 plumbingSection.subsections[0].items.push({
                     name: "Гидроизоляция стен",
-                    rate: 600,
+                    rate: 300,
                     quantity: 8,
                     unit: "кв.м.",
-                    total: (8 * 600).toFixed(1)
+                    total: (8 * 300).toFixed(1)
                 });
             }
 
