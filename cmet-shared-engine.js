@@ -6468,26 +6468,11 @@ function scheduleClipboardHeading(address) {
     return 'График работ';
 }
 
-/** Визуально жирный текст для plain text (диплинк MAX :share не парсит Markdown). */
-function textToUnicodeBold(str) {
-    return String(str || '').replace(/[\u0401\u0410-\u042F\u0430-\u044F\u04510-9A-Za-z]/g, function (ch) {
-        const c = ch.charCodeAt(0);
-        if (c >= 0x0410 && c <= 0x042F) return String.fromCodePoint(c + 0x1D260);
-        if (c >= 0x0430 && c <= 0x044F) return String.fromCodePoint(c + 0x1D25A);
-        if (c === 0x0401) return String.fromCodePoint(0x1D662);
-        if (c === 0x0451) return String.fromCodePoint(0x1D69C);
-        if (c >= 0x30 && c <= 0x39) return String.fromCodePoint(c + 0x1D7CE - 0x30);
-        if (c >= 0x41 && c <= 0x5A) return String.fromCodePoint(c + 0x1D400 - 0x41);
-        if (c >= 0x61 && c <= 0x7A) return String.fromCodePoint(c + 0x1D41A - 0x61);
-        return ch;
-    });
-}
-
-/** Текст вертикальной ленты этапов для буфера обмена (как на экране). options.boldStages — жирные названия этапов (Unicode для MAX :share). */
+/** Текст вертикальной ленты этапов для буфера обмена (как на экране). options.uppercaseStages — названия этапов ЗАГЛАВНЫМИ (для MAX :share). */
 function buildScheduleClipboardTimelineText(scheduleData, address, options) {
     if (!scheduleData || !scheduleData.stages || !scheduleData.stages.length) return '';
     options = options || {};
-    const boldStages = !!options.boldStages;
+    const uppercaseStages = !!options.uppercaseStages;
     const lines = [];
     lines.push(scheduleClipboardHeading(address));
     lines.push('');
@@ -6496,7 +6481,7 @@ function buildScheduleClipboardTimelineText(scheduleData, address, options) {
     scheduleData.stages.forEach(function (st) {
         const meta = st.metaLabel || scheduleStageMetaLabel(st, null);
         const title = st.num + '. ' + (st.name || '');
-        lines.push(boldStages ? textToUnicodeBold(title) : title);
+        lines.push(uppercaseStages ? title.toLocaleUpperCase('ru-RU') : title);
         lines.push(meta);
         (st.tasks || []).forEach(function (task) {
             let row = '  — ' + (task.name || '');
