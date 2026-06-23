@@ -815,6 +815,10 @@
             font-size: 0.95rem;
         }
 
+        .estimate-wrap .estimate-max-share {
+            margin-top: 0.85rem;
+        }
+
         .estimate-wrap .est-actions-col,
         .estimate-wrap td.est-actions {
             display: none !important;
@@ -2626,28 +2630,158 @@
                 if (estimateSubView === EST_SUB_SCHEDULE) {
                     estBtnSchedule.textContent = 'Черновые';
                 } else if (estimateSubView === EST_SUB_MATERIALS) {
-                    estBtnSchedule.textContent = 'Оставить заявку на ремонт в Max';
+                    estBtnSchedule.textContent = 'Отправить список материалов в Max';
                     estBtnSchedule.classList.add('estimate-actions__btn--long');
                 } else {
                     estBtnSchedule.textContent = 'График';
                 }
             }
 
-            var PROFI_MAX_REQUEST_TEXT = 'Здравствуйте! Мне заявку на ремонт.';
+            function parseMaterialsLinksForShare(html) {
+                var sections = [];
+                if (!html || html.indexOf('material-category-card') < 0 || typeof DOMParser === 'undefined') return sections;
+                var doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+                var root = doc.body.firstElementChild;
+                if (!root) return sections;
+                root.querySelectorAll('.material-category-card').forEach(function (card) {
+                    var titleEl = card.querySelector('.material-category-title');
+                    var titleText = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
+                    var items = [];
+                    var details = card.querySelector('.material-category-details');
+                    if (details) {
+                        details.querySelectorAll('a.material-detail-link').forEach(function (a) {
+                            var label = a.textContent.replace(/\s+/g, ' ').trim();
+                            var href = a.getAttribute('href') || '';
+                            if (label) items.push({ label: label, href: href });
+                        });
+                        details.querySelectorAll(':scope > span').forEach(function (sp) {
+                            var label = sp.textContent.replace(/\s+/g, ' ').trim();
+                            if (label) items.push({ label: label, href: '' });
+                        });
+                        if (!items.length) {
+                            var plain = details.textContent.replace(/\s+/g, ' ').trim();
+                            if (plain) items.push({ label: plain, href: '' });
+                        }
+                    }
+                    if (titleText || items.length) sections.push({ title: titleText, items: items });
+                });
+                return sections;
+            }
 
-            function openMaxRepairRequest() {
-                var url = 'https://max.ru/:share?text=' + encodeURIComponent(PROFI_MAX_REQUEST_TEXT);
-                var opened = window.open(url, '_blank', 'noopener,noreferrer');
-                if (!opened) {
-                    window.location.href = url;
+            function buildFinishMaterialsShareText() {
+                var html = '';
+                if (estimateMaterialsBody && estimateMaterialsBody.innerHTML &&
+                    estimateMaterialsBody.innerHTML.indexOf('material-category-card') >= 0) {
+                    html = estimateMaterialsBody.innerHTML;
+                } else if (typeof CmetShared !== 'undefined' && CmetShared.buildMaterialsListHtml) {
+                    html = CmetShared.buildMaterialsListHtml();
                 }
+                var sections = parseMaterialsLinksForShare(html);
+                if (!sections.length || !sections.some(function (s) { return s.items && s.items.length; })) return '';
+
+                var addr = getEstimateExportAddress();
+                var lines = [addr ? ('Финишные материалы — ' + addr) : 'Финишные материалы', ''];
+                sections.forEach(function (sec) {
+                    if (sec.title) lines.push(sec.title);
+                    (sec.items || []).forEach(function (item) {
+                        if (item.href) lines.push('• ' + item.label + '\n' + item.href);
+                        else if (item.label) lines.push('• ' + item.label);
+                    });
+                    lines.push('');
+                });
+                return lines.join('\n').trim();
+            }
+
+            function buildEstimateShareText() {
+                if (!estimateContent) return '';
+                var lines = [];
+                var titleEl = estimateContent.querySelector('.estimate-doc-title');
+                lines.push((titleEl && titleEl.textContent.trim()) ? titleEl.textContent.trim() : 'Смета на ремонт');
+                lines.push('');
+                var tbody = estimateContent.querySelector('table.estimate-table tbody');
+                if (!tbody) return lines.join('\n');
+                tbody.querySelectorAll(':scope > tr').forEach(function (tr) {
+                    if (tr.classList.contains('category')) {
+                        lines.push('■ ' + tr.textContent.replace(/\s+/g, ' ').trim());
+                        lines.push('');
+                    } else if (tr.classList.contains('subcategory')) {
+                        lines.push('  • ' + tr.textContent.replace(/\s+/g, ' ').trim());
+                    } else if (tr.classList.contains('work-item')) {
+                        var td = tr.querySelectorAll('td');
+                        if (td.length >= 6) {
+                            var name = td[1].innerText.replace(/\s+/g, ' ').trim();
+                            var rate = td[2].innerText.replace(/\s+/g, ' ').trim();
+                            var qty = td[3].innerText.replace(/\s+/g, ' ').trim();
+                            var unit = td[4].innerText.replace(/\s+/g, ' ').trim();
+                            var cost = td[5].innerText.replace(/\s+/g, ' ').trim();
+                            lines.push('    — ' + name + ' | ' + rate + ' ₽ × ' + qty + ' ' + unit + ' → ' + cost + ' ₽');
+                        }
+                    }
+                });
+                if (typeof CmetShared !== 'undefined' && CmetShared.getEstimateRatePercent) {
+                    var ratePct = CmetShared.getEstimateRatePercent();
+                    if (ratePct) {
+                        var pctSign = ratePct > 0 ? '+' : '';
+                        lines.push('Корректировка расценок: ' + pctSign + ratePct + '%');
+                    }
+                }
+                var sumEl = estimateContent.querySelector('.estimate-total-sum');
+                lines.push('');
+                if (sumEl) lines.push('Итого: ' + sumEl.textContent.replace(/\s+/g, ' ').trim());
+                return lines.join('\n');
+            }
+
+            function openMaxShareUrl(text) {
+                var url = 'https://max.ru/:share?text=' + encodeURIComponent(text);
+                var opened = window.open(url, '_blank', 'noopener,noreferrer');
+                if (!opened) window.location.href = url;
+            }
+
+            function openMaxEstimateShare() {
+                var text = buildEstimateShareText();
+                if (!text || text.length < 20) {
+                    alert('Смета пуста — сначала сформируйте смету на работы');
+                    return;
+                }
+                openMaxShareUrl(text);
+            }
+
+            function injectEstimateMaxShareBtn() {
+                if (!estimateContent) return;
+                estimateContent.querySelectorAll('.estimate-max-share').forEach(function (el) { el.remove(); });
+                var table = estimateContent.querySelector('table.estimate-table');
+                if (!table) return;
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-action estimate-max-share';
+                btn.textContent = 'Отправить смету в Max';
+                btn.addEventListener('click', openMaxEstimateShare);
+                table.insertAdjacentElement('afterend', btn);
+            }
+
+            function openMaxMaterialsShare() {
+                if (!CmetShared || !CmetShared.buildMaterialsListHtml) {
+                    alert('Модуль материалов не загружен');
+                    return;
+                }
+                var ctx = syncEstimateEngineContext();
+                if (!ctx) {
+                    alert('Отметьте хотя бы один раздел материалов');
+                    return;
+                }
+                var text = buildFinishMaterialsShareText();
+                if (!text) {
+                    alert('Нет выбранных материалов для отправки');
+                    return;
+                }
+                openMaxShareUrl(text);
             }
 
             function onEstActionSecondaryClick() {
                 if (estimateSubView === EST_SUB_SCHEDULE) {
                     openRoughStep();
                 } else if (estimateSubView === EST_SUB_MATERIALS) {
-                    openMaxRepairRequest();
+                    openMaxMaterialsShare();
                 } else {
                     openScheduleStep();
                 }
@@ -2686,6 +2820,7 @@
                     if (table && CmetShared.refreshEstimateTotalsForTable) {
                         CmetShared.refreshEstimateTotalsForTable(table);
                     }
+                    injectEstimateMaxShareBtn();
                     showEstimateSubView(EST_SUB_ESTIMATE, true);
                 } catch (err) {
                     console.error(err);
