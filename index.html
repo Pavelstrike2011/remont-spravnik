@@ -4,18 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ремонт квартир</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; }
+
+        :root {
+            --bg: #f8fbff;
+            --text: #0f2744;
+            --title: #0f2744;
+            --muted: #5b7394;
+            --border: #c5ddf0;
+            --accent: #1565c0;
+            --input-bg: #fff;
+            --contact-bg: linear-gradient(145deg, #f4f9ff, #e6f1fc);
+            --contact-border: #b8d4f0;
+            --contact-shadow: 0 3px 14px rgba(26, 95, 180, 0.12);
+            --contact-name: #1e3a5f;
+            --badge-bg: rgba(21, 101, 192, 0.1);
+            --badge-text: #1565c0;
+            --badge-border: rgba(21, 101, 192, 0.2);
+            --hero-gradient: linear-gradient(135deg, #1976d2, #42a5f5, #90caf9);
+            --hero-text: #fff;
+            --btn-bg: linear-gradient(135deg, #1565c0, #0d47a1);
+            --btn-bg-active: linear-gradient(135deg, #0d47a1, #0a3d91);
+            --btn-text: #fff;
+            --btn-shadow: 0 4px 14px rgba(21, 101, 192, 0.35);
+            --card-bg: #fff;
+            --divider: #e3f0fa;
+            --accent-soft: #e6f1fc;
+        }
 
         html { -webkit-text-size-adjust: 100%; }
 
         body {
             margin: 0;
-            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
             font-size: 16px;
             line-height: 1.35;
-            color: #111;
-            background: #fff;
+            color: var(--text);
+            background: var(--bg);
             overflow-x: hidden;
         }
 
@@ -34,29 +63,124 @@
             margin-bottom: 1.35rem;
         }
 
+        .page__badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.35rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .page__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.28rem 0.55rem;
+            font-size: 0.63rem;
+            font-weight: 700;
+            border-radius: 999px;
+            background: var(--badge-bg);
+            color: var(--badge-text);
+            border: 1px solid var(--badge-border);
+        }
+
+        .page__hero {
+            height: 72px;
+            margin-bottom: 0.85rem;
+            border-radius: 14px;
+            background: var(--hero-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(21, 101, 192, 0.2);
+        }
+
+        .page__hero::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.55;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .page__hero-icon {
+            font-size: 2rem;
+            z-index: 1;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+            line-height: 1;
+        }
+
+        .page__hero-text {
+            z-index: 1;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: var(--hero-text);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
         .page__title {
             grid-column: 1;
             grid-row: 1;
             margin: 0 0 0.65rem;
             font-size: 1.125rem;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
+            color: var(--title);
         }
 
         .page__head-center {
             grid-column: 1;
             grid-row: 2;
             text-align: center;
+            padding: 0 2.85rem;
+        }
+
+        .contact-block {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.75rem 1.25rem 0.85rem;
+            background: var(--contact-bg);
+            border: 1px solid var(--contact-border);
+            border-radius: 16px;
+            box-shadow: var(--contact-shadow);
+        }
+
+        .contact__name {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: var(--contact-name);
+        }
+
+        .contact__phone {
+            display: inline-block;
+            font-size: 1.45rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            color: var(--accent);
+            text-decoration: none;
+            line-height: 1.2;
+        }
+
+        .contact__phone:active {
+            opacity: 0.7;
         }
 
         .nav-arrow {
             width: 2.5rem;
             height: 2.5rem;
             padding: 0;
-            border: 1px solid #ccc;
+            border: 1px solid var(--border);
             border-radius: 10px;
-            background: #fff;
-            color: #111;
+            background: var(--card-bg);
+            color: var(--text);
             font: inherit;
             font-size: 1.25rem;
             line-height: 1;
@@ -68,7 +192,7 @@
             cursor: default;
         }
 
-        .nav-arrow:not(:disabled):active { background: #eee; }
+        .nav-arrow:not(:disabled):active { background: var(--accent-soft); }
 
         #navPrev {
             grid-column: 1;
@@ -76,22 +200,6 @@
             justify-self: start;
             z-index: 1;
         }
-
-        .contact__name {
-            margin: 0 0 0.15rem;
-            font-size: 1.05rem;
-            font-weight: 700;
-        }
-
-        .contact__phone {
-            display: inline-block;
-            font-size: 1.05rem;
-            font-weight: 600;
-            color: #111;
-            text-decoration: none;
-        }
-
-        .contact__phone:active { opacity: 0.65; }
 
         .screen[hidden] { display: none !important; }
 
@@ -111,8 +219,8 @@
 
         .field label {
             font-size: 0.78rem;
-            font-weight: 500;
-            color: #666;
+            font-weight: 600;
+            color: var(--muted);
         }
 
         .field input,
@@ -122,9 +230,10 @@
             padding: 0.72rem 0.85rem;
             font: inherit;
             font-size: 0.95rem;
-            color: #111;
-            background: #fff;
-            border: 1px solid #ccc;
+            font-weight: 600;
+            color: var(--text);
+            background: var(--input-bg);
+            border: 1px solid var(--border);
             border-radius: 10px;
             appearance: none;
             -webkit-appearance: none;
@@ -132,7 +241,7 @@
         }
 
         .field select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%235b7394' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 0.85rem center;
             padding-right: 2.1rem;
@@ -141,7 +250,7 @@
         .field input:focus,
         .field select:focus {
             outline: none;
-            border-color: #111;
+            border-color: var(--accent);
             border-width: 2px;
             padding: calc(0.72rem - 1px) calc(0.85rem - 1px);
         }
@@ -154,20 +263,21 @@
             padding: 0.9rem 1rem;
             font: inherit;
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
             cursor: pointer;
-            color: #fff;
-            background: #111;
+            color: var(--btn-text);
+            background: var(--btn-bg);
             border: none;
             border-radius: 12px;
+            box-shadow: var(--btn-shadow);
         }
 
-        .btn-calc:active { background: #333; }
+        .btn-calc:active { background: var(--btn-bg-active); }
 
         .results-detail {
             font-size: 0.86rem;
-            color: #666;
+            color: var(--muted);
         }
 
         .results-block {
@@ -181,8 +291,8 @@
         .results-block h3 {
             margin: 0 0 0.35rem;
             font-size: 0.88rem;
-            font-weight: 700;
-            color: #111;
+            font-weight: 800;
+            color: var(--title);
         }
 
         .results-list-row {
@@ -190,7 +300,7 @@
             justify-content: space-between;
             gap: 0.75rem;
             padding: 0.35rem 0;
-            border-bottom: 1px solid #e8ecf2;
+            border-bottom: 1px solid var(--divider);
         }
 
         .results-list-row:last-child {
@@ -198,12 +308,12 @@
         }
 
         .results-list-row span {
-            color: #666;
+            color: var(--muted);
         }
 
         .results-list-row strong {
-            color: #111;
-            font-weight: 700;
+            color: var(--text);
+            font-weight: 800;
             white-space: nowrap;
         }
 
@@ -213,16 +323,17 @@
             padding: 0.9rem 1rem;
             font: inherit;
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
             cursor: pointer;
-            color: #fff;
-            background: #111;
+            color: var(--btn-text);
+            background: var(--btn-bg);
             border: none;
             border-radius: 12px;
+            box-shadow: var(--btn-shadow);
         }
 
-        .btn-action:active { background: #333; }
+        .btn-action:active { background: var(--btn-bg-active); }
 
         .materials-form {
             display: flex;
@@ -233,8 +344,8 @@
         .materials-subtitle {
             margin: 0 0 0.75rem;
             font-size: 0.88rem;
-            font-weight: 700;
-            color: #111;
+            font-weight: 800;
+            color: var(--title);
             text-align: center;
         }
 
@@ -252,11 +363,11 @@
             padding: 0.85rem 1rem;
             font: inherit;
             font-size: 0.92rem;
-            font-weight: 600;
+            font-weight: 700;
             text-align: left;
-            color: #111;
-            background: #fff;
-            border: 1px solid #ccc;
+            color: var(--text);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
             border-radius: 12px;
             cursor: pointer;
             touch-action: manipulation;
@@ -266,31 +377,32 @@
         }
 
         .category-card:active,
-        .material-card:active { background: #f5f5f5; }
+        .material-card:active { background: var(--accent-soft); }
 
         .category-card__meta {
             display: block;
             margin-top: 0.2rem;
             font-size: 0.75rem;
             font-weight: 500;
-            color: #888;
+            color: var(--muted);
         }
 
         .category-card.is-selected,
         .material-card.is-selected {
-            border-color: #111;
+            border-color: var(--accent);
             border-width: 2px;
             padding: calc(0.85rem - 1px) calc(1rem - 1px);
-            background: #111;
-            color: #fff;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            box-shadow: var(--btn-shadow);
         }
 
         .category-card.is-selected .category-card__meta {
-            color: #ccc;
+            color: rgba(255, 255, 255, 0.75);
         }
 
         .material-card.is-selected .category-card__meta {
-            color: #ccc;
+            color: rgba(255, 255, 255, 0.75);
         }
 
         .material-card__meta {
@@ -298,11 +410,11 @@
             margin-top: 0.25rem;
             font-size: 0.75rem;
             font-weight: 500;
-            color: #888;
+            color: var(--muted);
         }
 
         .material-card.is-selected .material-card__meta {
-            color: #ccc;
+            color: rgba(255, 255, 255, 0.75);
         }
 
         .material-card.is-holding {
@@ -328,7 +440,7 @@
             width: 100%;
             max-width: 320px;
             padding: 1.1rem;
-            background: #fff;
+            background: var(--card-bg);
             border-radius: 14px;
             transition: transform 0.15s ease-out;
         }
@@ -336,15 +448,16 @@
         .qty-dialog__title {
             margin: 0 0 0.75rem;
             font-size: 0.95rem;
-            font-weight: 700;
+            font-weight: 800;
+            color: var(--title);
         }
 
         .qty-dialog__label {
             display: block;
             margin: 0 0 0.25rem;
             font-size: 0.78rem;
-            font-weight: 500;
-            color: #666;
+            font-weight: 600;
+            color: var(--muted);
         }
 
         .qty-dialog__label[hidden],
@@ -362,8 +475,10 @@
             padding: 0.72rem 0.85rem;
             font: inherit;
             font-size: 1rem;
-            color: #111;
-            border: 1px solid #ccc;
+            font-weight: 600;
+            color: var(--text);
+            background: var(--input-bg);
+            border: 1px solid var(--border);
             border-radius: 10px;
         }
 
@@ -373,7 +488,7 @@
 
         .qty-dialog__input:focus {
             outline: none;
-            border-color: #111;
+            border-color: var(--accent);
             border-width: 2px;
             padding: calc(0.72rem - 1px) calc(0.85rem - 1px);
         }
@@ -394,15 +509,16 @@
         }
 
         .qty-dialog__btn--cancel {
-            color: #111;
-            background: #fff;
-            border: 1px solid #ccc;
+            color: var(--text);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
         }
 
         .qty-dialog__btn--ok {
-            color: #fff;
-            background: #111;
+            color: var(--btn-text);
+            background: var(--btn-bg);
             border: none;
+            box-shadow: var(--btn-shadow);
         }
 
         .materials-detail-head {
@@ -412,13 +528,14 @@
         .materials-detail-title {
             margin: 0;
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 800;
+            color: var(--title);
         }
 
         .materials-hint {
             margin: 0 0 0.75rem;
             font-size: 0.78rem;
-            color: #888;
+            color: var(--muted);
         }
 
         .estimate-wrap {
@@ -429,9 +546,10 @@
         .estimate-wrap .estimate-doc-title {
             margin: 0 0 0.85rem;
             font-size: 0.9rem;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
             line-height: 1.3;
+            color: var(--title);
         }
 
         /* Таблица → компактный список под ширину экрана (~360px) без горизонтального скролла */
@@ -473,12 +591,13 @@
         }
 
         .estimate-wrap .estimate-table tr.category td {
-            font-weight: 700;
+            font-weight: 800;
             font-size: 0.82rem;
             background: transparent;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid var(--border);
             margin-top: 0.35rem;
             padding-top: 0.75rem;
+            color: var(--title);
         }
 
         .estimate-wrap .estimate-table tr.category:first-child td {
@@ -489,7 +608,7 @@
 
         .estimate-wrap .estimate-table tr.subcategory td {
             font-style: italic;
-            color: #555;
+            color: var(--muted);
             font-size: 0.75rem;
             padding-bottom: 0.15rem;
         }
@@ -500,7 +619,7 @@
             align-items: baseline;
             gap: 0.12rem 0.3rem;
             padding: 0.45rem 0;
-            border-bottom: 1px solid #eef1f5;
+            border-bottom: 1px solid var(--divider);
         }
 
         .estimate-wrap .estimate-table tr.work-item td {
@@ -521,7 +640,7 @@
         .estimate-wrap .estimate-table tr.work-item td.est-cell-unit {
             flex: 0 0 auto;
             font-size: 0.72rem;
-            color: #666;
+            color: var(--muted);
             white-space: nowrap;
         }
 
@@ -559,19 +678,19 @@
             align-items: flex-start;
             gap: 0.5rem;
             padding: 0.7rem 0.8rem;
-            border: 1px solid #ddd;
-            border-left: 3px solid #111;
-            background: #fafafa;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            background: var(--accent-soft);
         }
 
         .estimate-wrap .estimate-gift-note__badge {
             padding: 0.15rem 0.5rem;
             font-size: 0.68rem;
-            font-weight: 700;
+            font-weight: 800;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            color: #fff;
-            background: #111;
+            color: var(--btn-text);
+            background: var(--accent);
             border-radius: 999px;
         }
 
@@ -583,12 +702,12 @@
             margin: 0 0 0.4rem;
             font-size: 0.78rem;
             line-height: 1.35;
-            color: #333;
+            color: var(--text);
         }
 
         .estimate-wrap .estimate-gift-note__lead strong {
-            font-weight: 700;
-            color: #111;
+            font-weight: 800;
+            color: var(--title);
         }
 
         .estimate-wrap .estimate-gift-note__perks {
@@ -606,15 +725,15 @@
             padding: 0.2rem 0 0.2rem 1rem;
             font-size: 0.76rem;
             line-height: 1.35;
-            font-weight: 600;
-            color: #111;
+            font-weight: 700;
+            color: var(--text);
         }
 
         .estimate-wrap .estimate-gift-note__perks li::before {
             content: "—";
             position: absolute;
             left: 0;
-            color: #666;
+            color: var(--muted);
         }
 
         .estimate-wrap .estimate-gift-note__accent {
@@ -623,7 +742,7 @@
             font-weight: 800;
             letter-spacing: 0.03em;
             text-transform: uppercase;
-            color: #111;
+            color: var(--accent);
         }
 
         .estimate-wrap .estimate-table tr.estimate-total {
@@ -634,7 +753,7 @@
             gap: 0.35rem;
             margin-top: 0.65rem;
             padding: 0.75rem 0 0.25rem;
-            border-top: 2px solid #ddd;
+            border-top: 2px solid var(--border);
         }
 
         .estimate-wrap .estimate-table tr.estimate-total td:empty,
@@ -663,7 +782,7 @@
             gap: 0.5rem;
             margin-top: 1rem;
             padding-top: 0.75rem;
-            border-top: 1px solid #e5e5e5;
+            border-top: 1px solid var(--divider);
         }
 
         .estimate-actions__btn {
@@ -672,18 +791,19 @@
             padding: 0.65rem 0.5rem;
             font: inherit;
             font-size: 0.78rem;
-            font-weight: 700;
+            font-weight: 800;
             line-height: 1.25;
             text-align: center;
-            color: #fff;
-            background: #111;
+            color: var(--btn-text);
+            background: var(--btn-bg);
             border: none;
             border-radius: 12px;
             cursor: pointer;
+            box-shadow: var(--btn-shadow);
         }
 
         .estimate-actions__btn:active {
-            background: #333;
+            background: var(--btn-bg-active);
         }
 
         .est-panel-overlay {
@@ -705,11 +825,11 @@
             width: 100%;
             max-width: 480px;
             max-height: 85vh;
-            background: #fff;
+            background: var(--card-bg);
             border-radius: 14px 14px 0 0;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 -4px 24px rgba(21, 101, 192, 0.15);
         }
 
         .est-panel__head {
@@ -718,19 +838,21 @@
             justify-content: space-between;
             gap: 0.5rem;
             padding: 0.85rem 1rem;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--divider);
             flex-shrink: 0;
         }
 
         .est-panel__title {
             margin: 0;
             font-size: 0.95rem;
-            font-weight: 700;
+            font-weight: 800;
+            color: var(--title);
         }
 
         .est-panel__close {
             border: none;
-            background: #f0f0f0;
+            background: var(--accent-soft);
+            color: var(--accent);
             width: 2rem;
             height: 2rem;
             border-radius: 50%;
@@ -748,7 +870,7 @@
 
         .est-panel-empty {
             margin: 0;
-            color: #888;
+            color: var(--muted);
             font-size: 0.85rem;
         }
 
@@ -761,13 +883,14 @@
         .est-basket-table th,
         .est-basket-table td {
             padding: 0.4rem 0.35rem;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--divider);
             text-align: left;
         }
 
         .est-basket-table th {
-            font-weight: 700;
-            background: #f8f9fa;
+            font-weight: 800;
+            background: var(--accent-soft);
+            color: var(--title);
         }
 
         .est-basket-table .est-basket-qty {
@@ -781,16 +904,16 @@
         }
 
         .est-panel-basket-link a {
-            color: #111;
-            font-weight: 600;
+            color: var(--accent);
+            font-weight: 700;
         }
 
         .est-schedule-summary {
             margin: 0 0 0.75rem;
             font: inherit;
             font-size: 0.78rem;
-            color: #666;
-            font-weight: 500;
+            color: var(--muted);
+            font-weight: 600;
         }
 
         .sprav-schedule-wrap .v2-timeline,
@@ -808,7 +931,7 @@
             top: 0.4rem;
             bottom: 0.4rem;
             width: 3px;
-            background: linear-gradient(180deg, #667eea, #94a3b8);
+            background: linear-gradient(180deg, #1976d2, #42a5f5);
             border-radius: 2px;
         }
 
@@ -846,7 +969,7 @@
 
         .estimate-schedule-wrap .v2-item {
             padding: 0.65rem 0;
-            border-bottom: 1px solid #e8ecf2;
+            border-bottom: 1px solid var(--divider);
         }
 
         .estimate-schedule-wrap .v2-item:last-child {
@@ -856,16 +979,16 @@
 
         .sprav-schedule-wrap .v2-title,
         .estimate-schedule-wrap .v2-title {
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.88rem;
-            color: #1e293b;
+            color: var(--title);
             line-height: 1.35;
         }
 
         .sprav-schedule-wrap .v2-meta,
         .estimate-schedule-wrap .v2-meta {
             font-size: 0.76rem;
-            color: #888;
+            color: var(--muted);
             margin-top: 0.15rem;
         }
 
@@ -874,7 +997,7 @@
             margin: 0.35rem 0 0;
             padding-left: 1rem;
             font-size: 0.78rem;
-            color: #475569;
+            color: var(--muted);
             list-style: disc;
         }
 
@@ -891,17 +1014,17 @@
         .estimate-schedule-wrap {
             font: inherit;
             font-size: 0.78rem;
-            color: #111;
+            color: var(--text);
         }
 
         .estimate-schedule-title {
             margin: 0 0 0.85rem;
             font: inherit;
             font-size: 0.9rem;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
             line-height: 1.3;
-            color: #111;
+            color: var(--title);
         }
 
         .estimate-schedule-wrap .est-schedule-summary {
@@ -909,44 +1032,44 @@
             padding: 0 0 0.65rem;
             font: inherit;
             font-size: 0.78rem;
-            font-weight: 500;
-            color: #666;
+            font-weight: 600;
+            color: var(--muted);
             background: none;
             border-radius: 0;
             text-align: left;
-            border-bottom: 1px solid #e8ecf2;
+            border-bottom: 1px solid var(--divider);
         }
 
         .estimate-schedule-wrap .v2-title {
             font: inherit;
-            font-weight: 700;
+            font-weight: 800;
             font-size: 0.82rem;
-            color: #111;
+            color: var(--title);
         }
 
         .estimate-schedule-wrap .v2-meta {
             font: inherit;
             font-size: 0.75rem;
-            font-weight: 500;
-            color: #666;
+            font-weight: 600;
+            color: var(--muted);
         }
 
         .estimate-schedule-wrap .v2-tasks {
             font: inherit;
-            color: #666;
+            color: var(--muted);
         }
 
         .estimate-schedule-wrap .v2-task-hrs {
             font: inherit;
-            color: #111;
-            font-weight: 700;
+            color: var(--accent);
+            font-weight: 800;
             white-space: nowrap;
         }
 
         .estimate-schedule-wrap .est-panel-empty {
             margin: 0;
             font: inherit;
-            color: #666;
+            color: var(--muted);
             font-size: 0.85rem;
             text-align: center;
         }
@@ -958,17 +1081,17 @@
         .estimate-materials-wrap {
             font: inherit;
             font-size: 0.78rem;
-            color: #111;
+            color: var(--text);
         }
 
         .estimate-materials-title {
             margin: 0 0 0.85rem;
             font: inherit;
             font-size: 0.9rem;
-            font-weight: 700;
+            font-weight: 800;
             text-align: center;
             line-height: 1.3;
-            color: #111;
+            color: var(--title);
         }
 
         .estimate-materials-native .materials-category-list {
@@ -979,7 +1102,7 @@
 
         .estimate-materials-native .material-category-card {
             padding: 0.65rem 0;
-            border-bottom: 1px solid #e8ecf2;
+            border-bottom: 1px solid var(--divider);
             background: none;
             border-radius: 0;
         }
@@ -990,23 +1113,23 @@
 
         .estimate-materials-native .material-category-title {
             font: inherit;
-            font-weight: 700;
+            font-weight: 800;
             font-size: 0.82rem;
-            color: #111;
+            color: var(--title);
         }
 
         .estimate-materials-native .material-category-details {
             font: inherit;
             font-size: 0.78rem;
-            color: #666;
+            color: var(--muted);
             margin-top: 0.25rem;
             line-height: 1.45;
         }
 
         .estimate-materials-native .material-detail-link {
-            color: #111;
+            color: var(--accent);
             text-decoration: underline;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .estimate-materials-native .material-detail-link:active {
@@ -1016,7 +1139,7 @@
         .estimate-materials-empty {
             margin: 0;
             font: inherit;
-            color: #666;
+            color: var(--muted);
             font-size: 0.85rem;
             text-align: center;
         }
@@ -1024,12 +1147,23 @@
 </head>
 <body>
     <main class="page">
+        <div class="page__badges" aria-hidden="true">
+            <span class="page__badge">✨ Бесплатно</span>
+            <span class="page__badge">📐 Точные м²</span>
+            <span class="page__badge">⭐ Profi</span>
+        </div>
+        <div class="page__hero" aria-hidden="true">
+            <span class="page__hero-icon">🏠</span>
+            <span class="page__hero-text">Ремонт под ключ</span>
+        </div>
         <header class="page__head">
-            <h1 class="page__title">Ремонт квартир</h1>
+            <h1 class="page__title">🏗 Ремонт квартир</h1>
             <button type="button" class="nav-arrow" id="navPrev" aria-label="Назад" disabled>&#8592;</button>
             <div class="page__head-center">
-                <p class="contact__name">Pavel Profi</p>
-                <a class="contact__phone" href="tel:+79529394194">+7&nbsp;952&nbsp;939-41-94</a>
+                <div class="contact-block">
+                    <p class="contact__name">👤 Pavel Profi</p>
+                    <a class="contact__phone" href="tel:+79529394194">📞 +7&nbsp;952&nbsp;939-41-94</a>
+                </div>
             </div>
         </header>
 
@@ -1074,7 +1208,7 @@
                     <input type="number" id="bathroomVannaya" name="bathroomVannaya" value="3" min="0" step="0.1" inputmode="decimal">
                 </div>
 
-                <button type="button" class="btn-calc" id="calcBtn">Рассчитать</button>
+                <button type="button" class="btn-calc" id="calcBtn">🧮 Рассчитать</button>
             </form>
         </div>
 
@@ -1145,7 +1279,7 @@
         </div>
     </div>
 
-    <script src="cmet-shared-engine.js?v=20250623x"></script>
+    <script src="cmet-shared-engine.js?v=20250623y"></script>
     <script>
         (function () {
             var ROOM_CONFIGS = {
@@ -2577,7 +2711,10 @@
                         alert('Экспорт недоступен');
                         return;
                     }
-                    CmetShared.exportEstimateToExcel(lastEstimateData);
+                    var edForExport = (estimateContent && estimateContent.querySelector('tbody tr.work-item') && CmetShared.collectEstimateFromMirror && lastEstimateData)
+                        ? CmetShared.collectEstimateFromMirror(estimateContent, lastEstimateData)
+                        : lastEstimateData;
+                    CmetShared.exportEstimateToExcel(edForExport);
                 });
             }
 
