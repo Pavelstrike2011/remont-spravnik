@@ -1109,6 +1109,10 @@
             border-bottom: 1px solid var(--divider);
         }
 
+        .estimate-schedule-wrap .schedule-max-share {
+            margin-top: 0.85rem;
+        }
+
         .estimate-schedule-wrap .v2-title {
             font: inherit;
             font-weight: 800;
@@ -1422,6 +1426,7 @@
             var estPanelClose = document.getElementById('estPanelClose');
             var lastEstimateData = null;
             var lastEngineCalcForPanels = null;
+            var lastScheduleShareData = null;
             var lastEngineChForPanels = 2.7;
             var toEstimateBtn = document.getElementById('toEstimateBtn');
             var resultsContent = document.getElementById('resultsContent');
@@ -3004,13 +3009,49 @@
                 });
             }
 
+            function formatLocalDateIso(d) {
+                var y = d.getFullYear();
+                var m = String(d.getMonth() + 1).padStart(2, '0');
+                var day = String(d.getDate()).padStart(2, '0');
+                return y + '-' + m + '-' + day;
+            }
+
+            function openMaxScheduleShare() {
+                if (!lastScheduleShareData || !CmetShared.buildScheduleClipboardTimelineText) {
+                    alert('График работ не сформирован');
+                    return;
+                }
+                var text = CmetShared.buildScheduleClipboardTimelineText(
+                    lastScheduleShareData,
+                    getEstimateExportAddress(),
+                    { boldStages: true }
+                );
+                if (!text) {
+                    alert('Нет этапов для отправки');
+                    return;
+                }
+                openMaxShareUrl(text);
+            }
+
+            function injectScheduleMaxShareBtn() {
+                if (!estimateScheduleBody) return;
+                estimateScheduleBody.querySelectorAll('.schedule-max-share').forEach(function (el) { el.remove(); });
+                if (!estimateScheduleBody.querySelector('.v2-timeline')) return;
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-action schedule-max-share';
+                btn.textContent = 'Отправить график работ в Max';
+                btn.addEventListener('click', openMaxScheduleShare);
+                estimateScheduleBody.appendChild(btn);
+            }
+
             function openScheduleStep() {
                 var ctx = syncEstimateEngineContext();
                 if (!ctx) {
                     alert('Отметьте хотя бы один раздел материалов');
                     return false;
                 }
-                if (!CmetShared.buildScheduleTimelinePanelHtml) {
+                if (!CmetShared.buildScheduleTimelinePanelHtml || !CmetShared.buildScheduleData || !CmetShared.applyScheduleStartDate) {
                     alert('Модуль этапов не загружен');
                     return false;
                 }
@@ -3018,8 +3059,12 @@
                     if (!renderEstimate()) return false;
                     showScreen(SCREEN_ESTIMATE);
                 }
+                var todayIso = formatLocalDateIso(new Date());
+                var scheduleData = CmetShared.buildScheduleData(ctx.engineCalc);
+                lastScheduleShareData = CmetShared.applyScheduleStartDate(scheduleData, todayIso);
                 if (estimateScheduleBody) {
-                    estimateScheduleBody.innerHTML = CmetShared.buildScheduleTimelinePanelHtml(ctx.engineCalc);
+                    estimateScheduleBody.innerHTML = CmetShared.buildScheduleTimelinePanelHtml(ctx.engineCalc, todayIso);
+                    injectScheduleMaxShareBtn();
                 }
                 showEstimateSubView(EST_SUB_SCHEDULE);
                 if (estimateScheduleWrap) {

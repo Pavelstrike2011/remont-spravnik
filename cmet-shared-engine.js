@@ -4615,16 +4615,30 @@ function buildBasketStageRangePanelHtml(lastCalc, ch, minStage, maxStage) {
     return html;
 }
 
-/** Лента «Последовательность этапов» для мобильной панели. */
-function buildScheduleTimelinePanelHtml(calc) {
-    const scheduleData = buildScheduleData(calc);
+function formatScheduleDateInputToday() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+}
+
+/** Лента «График работ» для мобильной панели. startDateInput: YYYY-MM-DD; по умолчанию — сегодня; false — без календарных дат. */
+function buildScheduleTimelinePanelHtml(calc, startDateInput) {
+    let scheduleData = buildScheduleData(calc);
     if (!scheduleData.stages || !scheduleData.stages.length) {
         return '<p class="est-panel-empty">Нет этапов для выбранных работ.</p>';
     }
+    const startIso = startDateInput === false ? '' : (startDateInput || formatScheduleDateInputToday());
+    if (startIso) {
+        scheduleData = applyScheduleStartDate(scheduleData, startIso);
+    }
+    let summary = scheduleData.totalHours + ' ч · ' + scheduleData.totalDays + ' календ. дн. (1 раб. день = ' + scheduleData.hDay + ' ч)';
+    if (scheduleData.scheduleDateStart && scheduleData.scheduleDateEnd) {
+        summary += ' · ' + scheduleData.scheduleDateStart + ' — ' + scheduleData.scheduleDateEnd;
+    }
     let html = '<div class="sprav-schedule-wrap">';
-    html += '<p class="est-schedule-summary">' + escapeHtmlText(
-        scheduleData.totalHours + ' ч · ' + scheduleData.totalDays + ' календ. дн. (1 раб. день = ' + scheduleData.hDay + ' ч)'
-    ) + '</p>';
+    html += '<p class="est-schedule-summary">' + escapeHtmlText(summary) + '</p>';
     html += buildScheduleTimelineHtml(scheduleData);
     html += '</div>';
     return html;
@@ -6450,13 +6464,30 @@ function buildScheduleTimelineHtml(scheduleData) {
 
 function scheduleClipboardHeading(address) {
     const a = String(address || '').trim();
-    if (a) return 'Последовательность этапов "' + a + '"';
-    return 'Последовательность этапов';
+    if (a) return 'График работ — ' + a;
+    return 'График работ';
 }
 
-/** Текст вертикальной ленты этапов для буфера обмена (как на экране). */
-function buildScheduleClipboardTimelineText(scheduleData, address) {
+/** Визуально жирный текст для plain text (диплинк MAX :share не парсит Markdown). */
+function textToUnicodeBold(str) {
+    return String(str || '').replace(/[\u0401\u0410-\u042F\u0430-\u044F\u04510-9A-Za-z]/g, function (ch) {
+        const c = ch.charCodeAt(0);
+        if (c >= 0x0410 && c <= 0x042F) return String.fromCodePoint(c + 0x1D260);
+        if (c >= 0x0430 && c <= 0x044F) return String.fromCodePoint(c + 0x1D25A);
+        if (c === 0x0401) return String.fromCodePoint(0x1D662);
+        if (c === 0x0451) return String.fromCodePoint(0x1D69C);
+        if (c >= 0x30 && c <= 0x39) return String.fromCodePoint(c + 0x1D7CE - 0x30);
+        if (c >= 0x41 && c <= 0x5A) return String.fromCodePoint(c + 0x1D400 - 0x41);
+        if (c >= 0x61 && c <= 0x7A) return String.fromCodePoint(c + 0x1D41A - 0x61);
+        return ch;
+    });
+}
+
+/** Текст вертикальной ленты этапов для буфера обмена (как на экране). options.boldStages — жирные названия этапов (Unicode для MAX :share). */
+function buildScheduleClipboardTimelineText(scheduleData, address, options) {
     if (!scheduleData || !scheduleData.stages || !scheduleData.stages.length) return '';
+    options = options || {};
+    const boldStages = !!options.boldStages;
     const lines = [];
     lines.push(scheduleClipboardHeading(address));
     lines.push('');
@@ -6464,7 +6495,8 @@ function buildScheduleClipboardTimelineText(scheduleData, address) {
     lines.push('');
     scheduleData.stages.forEach(function (st) {
         const meta = st.metaLabel || scheduleStageMetaLabel(st, null);
-        lines.push(st.num + '. ' + (st.name || ''));
+        const title = st.num + '. ' + (st.name || '');
+        lines.push(boldStages ? textToUnicodeBold(title) : title);
         lines.push(meta);
         (st.tasks || []).forEach(function (task) {
             let row = '  — ' + (task.name || '');
