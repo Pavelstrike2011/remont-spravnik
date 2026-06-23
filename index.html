@@ -180,6 +180,99 @@
 
         .screen[hidden] { display: none !important; }
 
+        .screens-stage {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        .screens-stage.is-dragging {
+            touch-action: none;
+        }
+
+        .screen {
+            width: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .screen.screen--active {
+            position: relative;
+            z-index: 1;
+        }
+
+        .screen.screen--anim {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            visibility: visible;
+            pointer-events: none;
+            transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.28s ease;
+        }
+
+        .screen.screen--anim-in {
+            z-index: 3;
+            pointer-events: auto;
+            transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.28s ease;
+        }
+
+        .screen.screen--drag {
+            transition: none !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .screen.screen--anim,
+            .screen.screen--anim-in {
+                transition: none !important;
+            }
+        }
+
+        .materials-stack {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .materials-pane {
+            width: 100%;
+            transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.28s ease;
+        }
+
+        .materials-pane[hidden] {
+            display: block !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+            visibility: hidden;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate3d(100%, 0, 0);
+        }
+
+        .materials-pane.materials-pane--active {
+            position: relative;
+            visibility: visible;
+            pointer-events: auto;
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+        }
+
+        .materials-pane.materials-pane--anim {
+            position: absolute;
+            top: 0;
+            left: 0;
+            visibility: visible;
+            pointer-events: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .materials-pane {
+                transition: none !important;
+            }
+        }
+
         .form {
             display: flex;
             flex-direction: column;
@@ -1143,7 +1236,8 @@
             </div>
         </header>
 
-        <div class="screen" id="screenInput">
+        <div class="screens-stage" id="screensStage">
+        <div class="screen screen--active" id="screenInput">
             <form class="form" id="planForm" action="#" method="get">
                 <div class="field">
                     <label for="apartmentType">Тип квартиры:</label>
@@ -1194,17 +1288,19 @@
         </div>
 
         <div class="screen" id="screenMaterials" hidden>
-            <div id="materialsHub">
+            <div class="materials-stack" id="materialsStack">
+            <div id="materialsHub" class="materials-pane materials-pane--active">
                 <p class="materials-subtitle">Выберите раздел</p>
                 <div class="card-grid" id="categoryCards"></div>
                 <button type="button" class="btn-action" id="toEstimateBtn">Смета на работы</button>
             </div>
-            <div id="materialsDetail" hidden>
+            <div id="materialsDetail" class="materials-pane" hidden>
                 <div class="materials-detail-head">
                     <h2 class="materials-detail-title" id="materialsDetailTitle"></h2>
                 </div>
                 <p class="materials-hint" id="materialsDetailHint"></p>
                 <div class="card-grid" id="materialOptionCards"></div>
+            </div>
             </div>
         </div>
 
@@ -1225,6 +1321,8 @@
                 <button type="button" class="estimate-actions__btn" id="estBtnFinish">Финишные материалы</button>
             </div>
         </div>
+        </div>
+
     </main>
 
     <div class="est-panel-overlay" id="estPanelOverlay" hidden>
@@ -1276,6 +1374,11 @@
             var screenResults = document.getElementById('screenResults');
             var screenMaterials = document.getElementById('screenMaterials');
             var screenEstimate = document.getElementById('screenEstimate');
+            var screensStage = document.getElementById('screensStage');
+            var screens = [screenInput, screenResults, screenMaterials, screenEstimate];
+            var SCREEN_TRANSITION_MS = 340;
+            var screenAnimating = false;
+            var materialsPaneAnimating = false;
             var estimateContent = document.getElementById('estimateContent');
             var estimateScheduleWrap = document.getElementById('estimateScheduleWrap');
             var estimateScheduleBody = document.getElementById('estimateScheduleBody');
@@ -2238,29 +2341,35 @@
                 renderCategoryHub();
             }
 
-            function openCategoryDetail(categoryId) {
+            function openCategoryDetail(categoryId, skipAnim) {
                 var cat = getCategoryById(categoryId);
                 if (!cat) return;
                 activeCategoryId = categoryId;
                 materialsDetailOpen = true;
-                materialsHub.hidden = true;
-                materialsDetail.hidden = false;
                 materialsDetailTitle.textContent = cat.title;
                 materialsDetailHint.textContent = getCategoryHint(cat);
-                renderMaterialOptions();
+                if (skipAnim || prefersReducedMotion()) {
+                    setMaterialsPanesInstant(true);
+                    renderMaterialOptions();
+                } else {
+                    animateMaterialsPanes(true, function () { renderMaterialOptions(); });
+                }
                 if (!historyApplying) pushAppHistory();
             }
 
-            function closeCategoryDetail() {
+            function closeCategoryDetail(skipAnim) {
                 materialsDetailOpen = false;
                 activeCategoryId = null;
-                materialsDetail.hidden = true;
-                materialsHub.hidden = false;
+                if (skipAnim || prefersReducedMotion()) {
+                    setMaterialsPanesInstant(false);
+                } else {
+                    animateMaterialsPanes(false);
+                }
                 renderCategoryHub();
             }
 
             function showMaterialsHub() {
-                closeCategoryDetail();
+                closeCategoryDetail(true);
             }
 
             function collectCheckedSubtopicKeys() {
@@ -2581,10 +2690,9 @@
                     if (cat) {
                         activeCategoryId = state.category;
                         materialsDetailOpen = true;
-                        materialsHub.hidden = true;
-                        materialsDetail.hidden = false;
                         materialsDetailTitle.textContent = cat.title;
                         materialsDetailHint.textContent = getCategoryHint(cat);
+                        setMaterialsPanesInstant(true);
                         renderMaterialOptions();
                     }
                 }
@@ -2608,12 +2716,132 @@
                 window.addEventListener('popstate', onAppPopState);
             }
 
-            function showScreenInternal(index) {
+            function prefersReducedMotion() {
+                return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            }
+
+            function setScreenVisibleInstant(index) {
+                screens.forEach(function (el, i) {
+                    el.classList.remove('screen--anim', 'screen--anim-in', 'screen--drag', 'screen--active');
+                    el.style.transform = '';
+                    el.style.opacity = '';
+                    el.style.position = '';
+                    el.style.top = '';
+                    el.style.left = '';
+                    el.style.width = '';
+                    el.style.zIndex = '';
+                    el.style.visibility = '';
+                    el.style.pointerEvents = '';
+                    el.hidden = i !== index;
+                    if (i === index) el.classList.add('screen--active');
+                });
+                if (screensStage) screensStage.style.minHeight = '';
+            }
+
+            function animateScreenChange(fromIndex, toIndex, done) {
+                if (fromIndex === toIndex || prefersReducedMotion()) {
+                    setScreenVisibleInstant(toIndex);
+                    if (done) done();
+                    return;
+                }
+                if (screenAnimating) {
+                    setScreenVisibleInstant(toIndex);
+                    if (done) done();
+                    return;
+                }
+
+                var forward = toIndex > fromIndex;
+                var fromEl = screens[fromIndex];
+                var toEl = screens[toIndex];
+                var stageH = Math.max(fromEl.offsetHeight, toEl.offsetHeight || fromEl.offsetHeight);
+
+                screenAnimating = true;
+                if (screensStage) screensStage.style.minHeight = stageH + 'px';
+
+                toEl.hidden = false;
+                toEl.classList.add('screen--anim-in');
+                fromEl.classList.add('screen--anim');
+
+                fromEl.style.transform = 'translate3d(0,0,0)';
+                fromEl.style.opacity = '1';
+                toEl.style.transform = forward ? 'translate3d(100%,0,0)' : 'translate3d(-26%,0,0)';
+                toEl.style.opacity = forward ? '1' : '0.88';
+
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        fromEl.style.transform = forward ? 'translate3d(-26%,0,0)' : 'translate3d(100%,0,0)';
+                        fromEl.style.opacity = forward ? '0.88' : '1';
+                        toEl.style.transform = 'translate3d(0,0,0)';
+                        toEl.style.opacity = '1';
+                    });
+                });
+
+                setTimeout(function () {
+                    setScreenVisibleInstant(toIndex);
+                    screenAnimating = false;
+                    if (done) done();
+                }, SCREEN_TRANSITION_MS);
+            }
+
+            function setMaterialsPanesInstant(detailOpen) {
+                materialsHub.hidden = detailOpen;
+                materialsDetail.hidden = !detailOpen;
+                materialsHub.classList.toggle('materials-pane--active', !detailOpen);
+                materialsDetail.classList.toggle('materials-pane--active', detailOpen);
+                materialsHub.classList.remove('materials-pane--anim', 'materials-pane--anim-in');
+                materialsDetail.classList.remove('materials-pane--anim', 'materials-pane--anim-in');
+                materialsHub.style.transform = '';
+                materialsDetail.style.transform = '';
+                materialsHub.style.opacity = '';
+                materialsDetail.style.opacity = '';
+            }
+
+            function animateMaterialsPanes(toDetail, done) {
+                if (prefersReducedMotion()) {
+                    setMaterialsPanesInstant(toDetail);
+                    if (done) done();
+                    return;
+                }
+                if (materialsPaneAnimating) {
+                    setMaterialsPanesInstant(toDetail);
+                    if (done) done();
+                    return;
+                }
+
+                var fromEl = toDetail ? materialsHub : materialsDetail;
+                var toEl = toDetail ? materialsDetail : materialsHub;
+
+                materialsPaneAnimating = true;
+                toEl.hidden = false;
+                fromEl.classList.add('materials-pane--anim');
+                toEl.classList.add('materials-pane--anim-in');
+
+                fromEl.style.transform = 'translate3d(0,0,0)';
+                fromEl.style.opacity = '1';
+                toEl.style.transform = toDetail ? 'translate3d(100%,0,0)' : 'translate3d(-26%,0,0)';
+                toEl.style.opacity = toDetail ? '1' : '0.88';
+
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        fromEl.style.transform = toDetail ? 'translate3d(-26%,0,0)' : 'translate3d(100%,0,0)';
+                        fromEl.style.opacity = toDetail ? '0.88' : '1';
+                        toEl.style.transform = 'translate3d(0,0,0)';
+                        toEl.style.opacity = '1';
+                    });
+                });
+
+                setTimeout(function () {
+                    setMaterialsPanesInstant(toDetail);
+                    materialsPaneAnimating = false;
+                    if (done) done();
+                }, SCREEN_TRANSITION_MS);
+            }
+
+            function showScreenInternal(index, options) {
+                options = options || {};
+                var prev = currentScreen;
                 currentScreen = index;
-                screenInput.hidden = index !== SCREEN_INPUT;
-                screenResults.hidden = index !== SCREEN_RESULTS;
-                screenMaterials.hidden = index !== SCREEN_MATERIALS;
-                screenEstimate.hidden = index !== SCREEN_ESTIMATE;
+
                 if (index !== SCREEN_ESTIMATE && estimateSubView !== EST_SUB_ESTIMATE) {
                     showEstimateSubView(EST_SUB_ESTIMATE, true);
                 }
@@ -2621,6 +2849,16 @@
                     showMaterialsHub();
                     renderCategoryHub();
                 }
+
+                if (options.skipAnimation || prev === index) {
+                    setScreenVisibleInstant(index);
+                } else {
+                    animateScreenChange(prev, index, function () {
+                        window.scrollTo({ top: 0, behavior: 'auto' });
+                    });
+                    return;
+                }
+                window.scrollTo({ top: 0, behavior: 'auto' });
             }
 
             function showScreen(index) {
@@ -2663,43 +2901,171 @@
                 }
             }
 
+            function getForwardScreenIndex() {
+                if (materialsDetailOpen) return null;
+                if (currentScreen === SCREEN_INPUT && hasResults) return SCREEN_RESULTS;
+                if (currentScreen === SCREEN_RESULTS && hasResults) return SCREEN_MATERIALS;
+                if (currentScreen === SCREEN_MATERIALS) return SCREEN_ESTIMATE;
+                return null;
+            }
+
+            function getBackScreenIndex() {
+                if (materialsDetailOpen) return null;
+                if (currentScreen === SCREEN_ESTIMATE && estimateSubView !== EST_SUB_ESTIMATE) return null;
+                if (currentScreen === SCREEN_ESTIMATE) return SCREEN_MATERIALS;
+                if (currentScreen > SCREEN_INPUT) return currentScreen - 1;
+                return null;
+            }
+
             function isSwipeNavigationBlocked() {
+                if (screenAnimating || materialsPaneAnimating) return true;
                 if (qtyDialog && !qtyDialog.hidden) return true;
                 if (estPanelOverlay && !estPanelOverlay.hidden) return true;
                 return false;
             }
 
+            function resetSwipeDragStyles() {
+                screens.forEach(function (el) {
+                    el.classList.remove('screen--drag');
+                    if (!el.hidden) {
+                        el.style.transform = '';
+                        el.style.opacity = '';
+                    }
+                });
+                if (screensStage) screensStage.classList.remove('is-dragging');
+            }
+
             function initSwipeNavigation() {
-                var pageMain = document.querySelector('main.page');
-                if (!pageMain) return;
-                var SWIPE_MIN_PX = 72;
-                var startX = 0;
-                var startY = 0;
-                var tracking = false;
+                if (!screensStage) return;
 
-                pageMain.addEventListener('touchstart', function (e) {
+                var SWIPE_MIN_PX = 56;
+                var SWIPE_COMMIT_RATIO = 0.22;
+                var drag = {
+                    tracking: false,
+                    dragging: false,
+                    axis: null,
+                    startX: 0,
+                    startY: 0,
+                    dx: 0,
+                    fromIndex: 0,
+                    toIndex: null
+                };
+
+                function clearDragPreview() {
+                    drag.tracking = false;
+                    drag.dragging = false;
+                    drag.axis = null;
+                    drag.toIndex = null;
+                    resetSwipeDragStyles();
+                }
+
+                function applyDrag(dx) {
+                    var w = screensStage.clientWidth || 1;
+                    var fromEl = screens[drag.fromIndex];
+                    var rubber = 0.32;
+                    var forward = dx < 0;
+                    var targetIndex = forward ? getForwardScreenIndex() : getBackScreenIndex();
+
+                    if (materialsDetailOpen && dx > 0) {
+                        fromEl.classList.add('screen--drag');
+                        fromEl.style.transform = 'translate3d(' + (dx * rubber) + 'px,0,0)';
+                        return;
+                    }
+
+                    if (targetIndex == null) {
+                        fromEl.classList.add('screen--drag');
+                        fromEl.style.transform = 'translate3d(' + (dx * rubber) + 'px,0,0)';
+                        return;
+                    }
+
+                    var toEl = screens[targetIndex];
+                    drag.toIndex = targetIndex;
+                    toEl.hidden = false;
+                    fromEl.classList.add('screen--drag');
+                    toEl.classList.add('screen--drag');
+
+                    if (forward) {
+                        fromEl.style.transform = 'translate3d(' + dx + 'px,0,0)';
+                        toEl.style.transform = 'translate3d(' + (w + dx) + 'px,0,0)';
+                    } else {
+                        fromEl.style.transform = 'translate3d(' + dx + 'px,0,0)';
+                        toEl.style.transform = 'translate3d(' + (-w * 0.26 + dx) + 'px,0,0)';
+                    }
+                    fromEl.style.opacity = '1';
+                    toEl.style.opacity = '1';
+                }
+
+                screensStage.addEventListener('touchstart', function (e) {
                     if (isSwipeNavigationBlocked() || !e.touches || e.touches.length !== 1) return;
-                    var t = e.touches[0];
-                    startX = t.clientX;
-                    startY = t.clientY;
-                    tracking = true;
+                    drag.tracking = true;
+                    drag.dragging = false;
+                    drag.axis = null;
+                    drag.fromIndex = currentScreen;
+                    drag.toIndex = null;
+                    drag.startX = e.touches[0].clientX;
+                    drag.startY = e.touches[0].clientY;
+                    drag.dx = 0;
                 }, { passive: true });
 
-                pageMain.addEventListener('touchend', function (e) {
-                    if (!tracking || isSwipeNavigationBlocked() || !e.changedTouches || !e.changedTouches.length) return;
-                    tracking = false;
-                    var t = e.changedTouches[0];
-                    var dx = t.clientX - startX;
-                    var dy = t.clientY - startY;
+                screensStage.addEventListener('touchmove', function (e) {
+                    if (!drag.tracking || isSwipeNavigationBlocked() || !e.touches || e.touches.length !== 1) return;
+
+                    var dx = e.touches[0].clientX - drag.startX;
+                    var dy = e.touches[0].clientY - drag.startY;
+
+                    if (!drag.axis) {
+                        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+                        if (Math.abs(dx) <= Math.abs(dy)) {
+                            drag.axis = 'y';
+                            return;
+                        }
+                        drag.axis = 'x';
+                        screensStage.classList.add('is-dragging');
+                    }
+                    if (drag.axis !== 'x') return;
+
+                    drag.dragging = true;
+                    drag.dx = dx;
+                    applyDrag(dx);
+                }, { passive: true });
+
+                screensStage.addEventListener('touchend', function (e) {
+                    if (!drag.tracking) return;
+                    var dx = drag.dx;
+                    var wasDragging = drag.dragging;
+                    var w = screensStage.clientWidth || 1;
+                    drag.tracking = false;
+
+                    if (!wasDragging || isSwipeNavigationBlocked()) {
+                        clearDragPreview();
+                        return;
+                    }
+
+                    resetSwipeDragStyles();
+
                     if (Math.abs(dx) < SWIPE_MIN_PX) return;
-                    if (Math.abs(dx) <= Math.abs(dy)) return;
-                    if (dx < 0) navForward();
-                    else navBack();
+
+                    if (materialsDetailOpen && dx > 0) {
+                        navBack();
+                        return;
+                    }
+
+                    if (dx < 0 && Math.abs(dx) > w * SWIPE_COMMIT_RATIO) {
+                        if (currentScreen === SCREEN_MATERIALS && !materialsDetailOpen) {
+                            goToEstimate();
+                        } else {
+                            var fwd = getForwardScreenIndex();
+                            if (fwd != null) showScreen(fwd);
+                        }
+                        return;
+                    }
+
+                    if (dx > 0 && dx > w * SWIPE_COMMIT_RATIO) {
+                        if (canAppGoBack()) navBack();
+                    }
                 }, { passive: true });
 
-                pageMain.addEventListener('touchcancel', function () {
-                    tracking = false;
-                }, { passive: true });
+                screensStage.addEventListener('touchcancel', clearDragPreview, { passive: true });
             }
 
             function openEstPanel(title, bodyHtml) {
