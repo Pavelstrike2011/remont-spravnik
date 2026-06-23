@@ -22,9 +22,6 @@
             --contact-border: #b8d4f0;
             --contact-shadow: 0 3px 14px rgba(26, 95, 180, 0.12);
             --contact-name: #1e3a5f;
-            --badge-bg: rgba(21, 101, 192, 0.1);
-            --badge-text: #1565c0;
-            --badge-border: rgba(21, 101, 192, 0.2);
             --hero-gradient: linear-gradient(135deg, #1976d2, #42a5f5, #90caf9);
             --hero-text: #fff;
             --btn-bg: linear-gradient(135deg, #1565c0, #0d47a1);
@@ -61,27 +58,6 @@
             align-items: center;
             gap: 0.25rem 0;
             margin-bottom: 1.35rem;
-        }
-
-        .page__badges {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 0.35rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .page__badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.28rem 0.55rem;
-            font-size: 0.63rem;
-            font-weight: 700;
-            border-radius: 999px;
-            background: var(--badge-bg);
-            color: var(--badge-text);
-            border: 1px solid var(--badge-border);
         }
 
         .page__hero {
@@ -176,6 +152,52 @@
 
         .contact__phone:active {
             opacity: 0.7;
+        }
+
+        .page__nav {
+            display: flex;
+            align-items: center;
+            margin-top: 0.55rem;
+            min-height: 34px;
+        }
+
+        .page-back {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            margin: 0;
+            padding: 0;
+            font: inherit;
+            color: var(--accent);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            box-shadow: 0 2px 8px rgba(21, 101, 192, 0.07);
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+        }
+
+        .page-back svg {
+            display: block;
+            width: 18px;
+            height: 18px;
+        }
+
+        .page-back:hover {
+            box-shadow: 0 3px 10px rgba(21, 101, 192, 0.12);
+        }
+
+        .page-back:active {
+            transform: scale(0.94);
+            background: var(--accent-soft);
+        }
+
+        .page-back[hidden] {
+            display: none !important;
         }
 
         .screen[hidden] { display: none !important; }
@@ -1124,11 +1146,6 @@
 </head>
 <body>
     <main class="page">
-        <div class="page__badges" aria-hidden="true">
-            <span class="page__badge">✨ Бесплатно</span>
-            <span class="page__badge">📐 Точные м²</span>
-            <span class="page__badge">⭐ Profi</span>
-        </div>
         <div class="page__hero" aria-hidden="true">
             <span class="page__hero-icon">🏠</span>
             <span class="page__hero-text">Ремонт под ключ</span>
@@ -1140,6 +1157,13 @@
                     <p class="contact__name">👤 Pavel Profi</p>
                     <a class="contact__phone" href="tel:+79529394194">📞 +7&nbsp;952&nbsp;939-41-94</a>
                 </div>
+                <nav class="page__nav" aria-label="Навигация">
+                    <button type="button" class="page-back" id="pageBackBtn" hidden aria-label="Назад">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M15 6l-6 6 6 6"/>
+                        </svg>
+                    </button>
+                </nav>
             </div>
         </header>
 
@@ -1272,6 +1296,7 @@
             var primaryLabel = document.getElementById('bathroomPrimaryLabel');
             var vannayaGroup = document.getElementById('bathroomVannayaGroup');
             var calcBtn = document.getElementById('calcBtn');
+            var pageBackBtn = document.getElementById('pageBackBtn');
             var screenInput = document.getElementById('screenInput');
             var screenResults = document.getElementById('screenResults');
             var screenMaterials = document.getElementById('screenMaterials');
@@ -2156,6 +2181,7 @@
                 qtyDialog.hidden = false;
                 bindQtyDialogViewport();
                 if (!historyApplying) pushAppHistory();
+                updatePageBackBtn();
                 setTimeout(function () {
                     qtyDialogInput.focus();
                     qtyDialogInput.select();
@@ -2249,6 +2275,7 @@
                 materialsDetailHint.textContent = getCategoryHint(cat);
                 renderMaterialOptions();
                 if (!historyApplying) pushAppHistory();
+                updatePageBackBtn();
             }
 
             function closeCategoryDetail() {
@@ -2257,6 +2284,7 @@
                 materialsDetail.hidden = true;
                 materialsHub.hidden = false;
                 renderCategoryHub();
+                updatePageBackBtn();
             }
 
             function showMaterialsHub() {
@@ -2486,6 +2514,7 @@
                 if (estimateScheduleWrap) estimateScheduleWrap.hidden = view !== EST_SUB_SCHEDULE;
                 if (estimateMaterialsWrap) estimateMaterialsWrap.hidden = view !== EST_SUB_MATERIALS;
                 if (!skipHistory && !historyApplying) pushAppHistory();
+                updatePageBackBtn();
             }
 
             function renderEstimate() {
@@ -2604,6 +2633,7 @@
                 if (state.screen === SCREEN_ESTIMATE) {
                     showEstimateSubView(state.estView || EST_SUB_ESTIMATE, true);
                 }
+                updatePageBackBtn();
             }
 
             function onAppPopState(e) {
@@ -2634,6 +2664,7 @@
                     showMaterialsHub();
                     renderCategoryHub();
                 }
+                updatePageBackBtn();
             }
 
             function showScreen(index) {
@@ -2658,6 +2689,10 @@
                 if (currentScreen === SCREEN_ESTIMATE) return true;
                 if (currentScreen > SCREEN_INPUT) return true;
                 return false;
+            }
+
+            function updatePageBackBtn() {
+                if (pageBackBtn) pageBackBtn.hidden = !canAppGoBack();
             }
 
             function navForward() {
@@ -2721,6 +2756,7 @@
                 if (estPanelBody) estPanelBody.innerHTML = bodyHtml || '';
                 estPanelOverlay.hidden = false;
                 if (!historyApplying) pushAppHistory();
+                updatePageBackBtn();
             }
 
             function closeEstPanel() {
@@ -2864,8 +2900,10 @@
 
             toMaterialsBtn.addEventListener('click', goToMaterials);
             toEstimateBtn.addEventListener('click', goToEstimate);
+            if (pageBackBtn) pageBackBtn.addEventListener('click', navBack);
             initSwipeNavigation();
             initPhoneBackNavigation();
+            updatePageBackBtn();
 
             qtyDialogCancel.addEventListener('click', closeQtyDialog);
             qtyDialogOk.addEventListener('click', confirmQtyDialog);
