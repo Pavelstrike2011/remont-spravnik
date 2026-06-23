@@ -242,6 +242,7 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 0.65rem;
+            touch-action: pan-y;
         }
 
         .category-card,
@@ -2449,6 +2450,30 @@
                 showScreen(SCREEN_MATERIALS);
             }
 
+            function findCategoryIndex(categoryId) {
+                for (var i = 0; i < MATERIAL_CATEGORIES.length; i++) {
+                    if (MATERIAL_CATEGORIES[i].id === categoryId) return i;
+                }
+                return -1;
+            }
+
+            /** Свайп между разделами материалов (Санузел — пол и др.). */
+            function swipeMaterialsCategory(step) {
+                if (!materialsDetailOpen || !activeCategoryId) return;
+                var idx = findCategoryIndex(activeCategoryId);
+                if (idx < 0) return;
+                var next = idx + step;
+                if (next < 0) {
+                    closeCategoryDetail();
+                    return;
+                }
+                if (next >= MATERIAL_CATEGORIES.length) {
+                    goToEstimate();
+                    return;
+                }
+                openCategoryDetail(MATERIAL_CATEGORIES[next].id);
+            }
+
             function navBack() {
                 if (currentScreen === SCREEN_MATERIALS && materialsDetailOpen) {
                     closeCategoryDetail();
@@ -2475,10 +2500,32 @@
                     return;
                 }
                 if (currentScreen === SCREEN_MATERIALS) {
-                    if (materialsDetailOpen) return;
+                    if (materialsDetailOpen) {
+                        swipeMaterialsCategory(1);
+                        return;
+                    }
                     goToEstimate();
                     return;
                 }
+            }
+
+            function navSwipeBack() {
+                if (currentScreen === SCREEN_MATERIALS && materialsDetailOpen) {
+                    swipeMaterialsCategory(-1);
+                    return;
+                }
+                navBack();
+            }
+
+            function navSwipeForward() {
+                navForward();
+            }
+
+            function isSwipeTouchTarget(el) {
+                if (!el || !el.closest) return true;
+                if (el.closest('#qtyDialog, #estPanelOverlay')) return false;
+                if (el.closest('input, select, textarea')) return false;
+                return true;
             }
 
             function isSwipeNavigationBlocked() {
@@ -2490,34 +2537,39 @@
             function initSwipeNavigation() {
                 var pageMain = document.querySelector('main.page');
                 if (!pageMain) return;
-                var SWIPE_MIN_PX = 72;
+                var SWIPE_MIN_PX = 56;
                 var startX = 0;
                 var startY = 0;
                 var tracking = false;
 
                 pageMain.addEventListener('touchstart', function (e) {
                     if (isSwipeNavigationBlocked() || !e.touches || e.touches.length !== 1) return;
+                    if (!isSwipeTouchTarget(e.target)) return;
                     var t = e.touches[0];
                     startX = t.clientX;
                     startY = t.clientY;
                     tracking = true;
-                }, { passive: true });
+                }, { passive: true, capture: true });
 
                 pageMain.addEventListener('touchend', function (e) {
                     if (!tracking || isSwipeNavigationBlocked() || !e.changedTouches || !e.changedTouches.length) return;
+                    if (!isSwipeTouchTarget(e.target)) {
+                        tracking = false;
+                        return;
+                    }
                     tracking = false;
                     var t = e.changedTouches[0];
                     var dx = t.clientX - startX;
                     var dy = t.clientY - startY;
                     if (Math.abs(dx) < SWIPE_MIN_PX) return;
                     if (Math.abs(dx) <= Math.abs(dy)) return;
-                    if (dx < 0) navForward();
-                    else navBack();
-                }, { passive: true });
+                    if (dx < 0) navSwipeForward();
+                    else navSwipeBack();
+                }, { passive: true, capture: true });
 
                 pageMain.addEventListener('touchcancel', function () {
                     tracking = false;
-                }, { passive: true });
+                }, { passive: true, capture: true });
             }
 
             navPrev.addEventListener('click', navBack);
