@@ -2536,6 +2536,8 @@
                 showScreen(SCREEN_ESTIMATE);
             }
 
+            var historyApplying = false;
+
             function buildAppHistoryState() {
                 var overlay = null;
                 if (qtyDialog && !qtyDialog.hidden) overlay = 'qty';
@@ -2549,10 +2551,20 @@
                 };
             }
 
+            /** Разные hash-URL нужны для iOS Safari: одинаковый URL не всегда создаёт шаг истории. */
+            function buildAppHistoryUrl(state) {
+                var parts = ['s=' + (state && state.screen != null ? state.screen : 0)];
+                if (state && state.category) parts.push('c=' + encodeURIComponent(state.category));
+                if (state && state.estView && state.estView !== EST_SUB_ESTIMATE) parts.push('v=' + state.estView);
+                if (state && state.overlay) parts.push('o=' + state.overlay);
+                return location.pathname + location.search + '#' + parts.join('&');
+            }
+
             function pushAppHistory() {
                 if (historyApplying) return;
                 try {
-                    history.pushState(buildAppHistoryState(), '', location.pathname + location.search);
+                    var state = buildAppHistoryState();
+                    history.pushState(state, '', buildAppHistoryUrl(state));
                 } catch (err) { /* ignore */ }
             }
 
@@ -2604,7 +2616,8 @@
             }
 
             function initPhoneBackNavigation() {
-                history.replaceState(buildAppHistoryState(), '', location.pathname + location.search);
+                var state = buildAppHistoryState();
+                history.replaceState(state, '', buildAppHistoryUrl(state));
                 window.addEventListener('popstate', onAppPopState);
             }
 
