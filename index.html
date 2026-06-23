@@ -31,6 +31,7 @@
             --card-bg: #fff;
             --divider: #e3f0fa;
             --accent-soft: #e6f1fc;
+            --accent-light: #90caf9;
         }
 
         html { -webkit-text-size-adjust: 100%; }
@@ -154,51 +155,95 @@
             opacity: 0.7;
         }
 
-        .page__nav {
-            display: flex;
-            align-items: center;
+        .page__stepper {
             margin-top: 0.55rem;
-            min-height: 34px;
         }
 
-        .page-back {
-            display: inline-flex;
+        .stepper {
+            display: flex;
             align-items: center;
-            justify-content: center;
-            width: 34px;
-            height: 34px;
-            margin: 0;
-            padding: 0;
-            font: inherit;
-            color: var(--accent);
+            justify-content: space-between;
+            gap: 0.12rem;
+            padding: 0.55rem 0.45rem;
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 11px;
-            box-shadow: 0 2px 8px rgba(21, 101, 192, 0.07);
+            border-radius: 14px;
+        }
+
+        .stepper__item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.22rem;
+            min-width: 0;
+            padding: 0;
+            border: none;
+            background: none;
+            font: inherit;
             cursor: pointer;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
-            transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
         }
 
-        .page-back svg {
-            display: block;
-            width: 18px;
-            height: 18px;
+        .stepper__item:disabled {
+            cursor: default;
+            opacity: 0.5;
         }
 
-        .page-back:hover {
-            box-shadow: 0 3px 10px rgba(21, 101, 192, 0.12);
-        }
-
-        .page-back:active {
-            transform: scale(0.94);
+        .stepper__dot {
+            width: 1.55rem;
+            height: 1.55rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: var(--muted);
             background: var(--accent-soft);
+            border: 2px solid transparent;
+            transition: all 0.18s;
+            flex-shrink: 0;
         }
 
-        .page-back[hidden] {
-            display: none !important;
+        .stepper__label {
+            font-size: 0.52rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.15;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
+
+        .stepper__item.is-done .stepper__dot {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .stepper__item.is-active .stepper__dot {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.14);
+        }
+
+        .stepper__item.is-active .stepper__label { color: var(--accent); }
+
+        .stepper__dash {
+            flex: 0 0 auto;
+            width: 0.28rem;
+            height: 2px;
+            margin-bottom: 0.95rem;
+            background: var(--border);
+            border-radius: 1px;
+        }
+
+        .stepper__dash.is-done { background: var(--accent-light); }
 
         .screen[hidden] { display: none !important; }
 
@@ -777,7 +822,7 @@
 
         .estimate-actions {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: auto 1fr;
             gap: 0.5rem;
             margin-top: 1rem;
             padding-top: 0.75rem;
@@ -799,6 +844,27 @@
             border-radius: 12px;
             cursor: pointer;
             box-shadow: var(--btn-shadow);
+        }
+
+        .estimate-actions__btn--icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            min-width: 2.75rem;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .estimate-actions__btn--icon svg {
+            display: block;
+            width: 1.15rem;
+            height: 1.15rem;
+        }
+
+        .estimate-actions__btn--long {
+            font-size: 0.68rem;
+            line-height: 1.2;
+            padding: 0.55rem 0.45rem;
         }
 
         .estimate-actions__btn:active {
@@ -1157,13 +1223,44 @@
                     <p class="contact__name">👤 Pavel Profi</p>
                     <a class="contact__phone" href="tel:+79529394194">📞 +7&nbsp;952&nbsp;939-41-94</a>
                 </div>
-                <nav class="page__nav" aria-label="Навигация">
-                    <button type="button" class="page-back" id="pageBackBtn" hidden aria-label="Назад">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M15 6l-6 6 6 6"/>
-                        </svg>
-                    </button>
-                </nav>
+                <div class="page__stepper">
+                    <nav class="stepper" id="pageStepper" aria-label="Прогресс">
+                        <button type="button" class="stepper__item is-active" data-step="0">
+                            <span class="stepper__dot">1</span>
+                            <span class="stepper__label">Параметры</span>
+                        </button>
+                        <span class="stepper__dash" data-after="0"></span>
+                        <button type="button" class="stepper__item" data-step="1" disabled>
+                            <span class="stepper__dot">2</span>
+                            <span class="stepper__label">Площади</span>
+                        </button>
+                        <span class="stepper__dash" data-after="1"></span>
+                        <button type="button" class="stepper__item" data-step="2" disabled>
+                            <span class="stepper__dot">3</span>
+                            <span class="stepper__label">Работы</span>
+                        </button>
+                        <span class="stepper__dash" data-after="2"></span>
+                        <button type="button" class="stepper__item" data-step="3" disabled>
+                            <span class="stepper__dot">4</span>
+                            <span class="stepper__label">Смета</span>
+                        </button>
+                        <span class="stepper__dash" data-after="3"></span>
+                        <button type="button" class="stepper__item" data-step="4" disabled>
+                            <span class="stepper__dot">5</span>
+                            <span class="stepper__label">График</span>
+                        </button>
+                        <span class="stepper__dash" data-after="4"></span>
+                        <button type="button" class="stepper__item" data-step="5" disabled>
+                            <span class="stepper__dot">6</span>
+                            <span class="stepper__label">Черновые</span>
+                        </button>
+                        <span class="stepper__dash" data-after="5"></span>
+                        <button type="button" class="stepper__item" data-step="6" disabled>
+                            <span class="stepper__dot">7</span>
+                            <span class="stepper__label">Финишные</span>
+                        </button>
+                    </nav>
+                </div>
             </div>
         </header>
 
@@ -1229,24 +1326,29 @@
                 </div>
                 <p class="materials-hint" id="materialsDetailHint"></p>
                 <div class="card-grid" id="materialOptionCards"></div>
+                <button type="button" class="btn-action" id="materialsDetailSelectBtn">Выбрать материалы</button>
             </div>
         </div>
 
         <div class="screen" id="screenEstimate" hidden aria-live="polite">
             <div class="estimate-wrap" id="estimateContent"></div>
             <div class="estimate-schedule-wrap" id="estimateScheduleWrap" hidden>
-                <h2 class="estimate-schedule-title">Последовательность этапов</h2>
+                <h2 class="estimate-schedule-title">График работ</h2>
                 <div id="estimateScheduleBody"></div>
             </div>
             <div class="estimate-materials-wrap" id="estimateMaterialsWrap" hidden>
-                <h2 class="estimate-materials-title">Выбранные материалы</h2>
+                <h2 class="estimate-materials-title">Финишные материалы</h2>
                 <div class="estimate-materials-native" id="estimateMaterialsBody"></div>
             </div>
             <div class="estimate-actions" id="estimateActions" hidden>
-                <button type="button" class="estimate-actions__btn" id="estBtnExport">Экспорт в Excel</button>
-                <button type="button" class="estimate-actions__btn" id="estBtnSchedule">Последовательность этапов</button>
-                <button type="button" class="estimate-actions__btn" id="estBtnRough">Черновые материалы</button>
-                <button type="button" class="estimate-actions__btn" id="estBtnFinish">Финишные материалы</button>
+                <button type="button" class="estimate-actions__btn estimate-actions__btn--icon" id="estBtnExport" aria-label="Экспорт в Excel" title="Экспорт в Excel">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3v12"/>
+                        <path d="M7 10l5 5 5-5"/>
+                        <path d="M5 21h14"/>
+                    </svg>
+                </button>
+                <button type="button" class="estimate-actions__btn" id="estBtnSchedule">График</button>
             </div>
         </div>
     </main>
@@ -1296,7 +1398,7 @@
             var primaryLabel = document.getElementById('bathroomPrimaryLabel');
             var vannayaGroup = document.getElementById('bathroomVannayaGroup');
             var calcBtn = document.getElementById('calcBtn');
-            var pageBackBtn = document.getElementById('pageBackBtn');
+            var pageStepper = document.getElementById('pageStepper');
             var screenInput = document.getElementById('screenInput');
             var screenResults = document.getElementById('screenResults');
             var screenMaterials = document.getElementById('screenMaterials');
@@ -1310,8 +1412,6 @@
             var estimateActions = document.getElementById('estimateActions');
             var estBtnExport = document.getElementById('estBtnExport');
             var estBtnSchedule = document.getElementById('estBtnSchedule');
-            var estBtnRough = document.getElementById('estBtnRough');
-            var estBtnFinish = document.getElementById('estBtnFinish');
             var estPanelOverlay = document.getElementById('estPanelOverlay');
             var estPanelTitle = document.getElementById('estPanelTitle');
             var estPanelBody = document.getElementById('estPanelBody');
@@ -1328,6 +1428,7 @@
             var materialOptionCards = document.getElementById('materialOptionCards');
             var materialsDetailTitle = document.getElementById('materialsDetailTitle');
             var materialsDetailHint = document.getElementById('materialsDetailHint');
+            var materialsDetailSelectBtn = document.getElementById('materialsDetailSelectBtn');
 
             var MATERIAL_CATEGORIES = [
                 {
@@ -2181,7 +2282,7 @@
                 qtyDialog.hidden = false;
                 bindQtyDialogViewport();
                 if (!historyApplying) pushAppHistory();
-                updatePageBackBtn();
+                updateStepper();
                 setTimeout(function () {
                     qtyDialogInput.focus();
                     qtyDialogInput.select();
@@ -2262,6 +2363,7 @@
                 }
                 renderMaterialOptions();
                 renderCategoryHub();
+                updateStepper();
             }
 
             function openCategoryDetail(categoryId) {
@@ -2275,7 +2377,7 @@
                 materialsDetailHint.textContent = getCategoryHint(cat);
                 renderMaterialOptions();
                 if (!historyApplying) pushAppHistory();
-                updatePageBackBtn();
+                updateStepper();
             }
 
             function closeCategoryDetail() {
@@ -2284,7 +2386,7 @@
                 materialsDetail.hidden = true;
                 materialsHub.hidden = false;
                 renderCategoryHub();
-                updatePageBackBtn();
+                updateStepper();
             }
 
             function showMaterialsHub() {
@@ -2514,7 +2616,41 @@
                 if (estimateScheduleWrap) estimateScheduleWrap.hidden = view !== EST_SUB_SCHEDULE;
                 if (estimateMaterialsWrap) estimateMaterialsWrap.hidden = view !== EST_SUB_MATERIALS;
                 if (!skipHistory && !historyApplying) pushAppHistory();
-                updatePageBackBtn();
+                updateEstimateActionBtn();
+                updateStepper();
+            }
+
+            function updateEstimateActionBtn() {
+                if (!estBtnSchedule) return;
+                estBtnSchedule.classList.remove('estimate-actions__btn--long');
+                if (estimateSubView === EST_SUB_SCHEDULE) {
+                    estBtnSchedule.textContent = 'Черновые';
+                } else if (estimateSubView === EST_SUB_MATERIALS) {
+                    estBtnSchedule.textContent = 'Оставить заявку на ремонт в Max';
+                    estBtnSchedule.classList.add('estimate-actions__btn--long');
+                } else {
+                    estBtnSchedule.textContent = 'График';
+                }
+            }
+
+            var PROFI_MAX_REQUEST_TEXT = 'Здравствуйте! Мне заявку на ремонт.';
+
+            function openMaxRepairRequest() {
+                var url = 'https://max.ru/:share?text=' + encodeURIComponent(PROFI_MAX_REQUEST_TEXT);
+                var opened = window.open(url, '_blank', 'noopener,noreferrer');
+                if (!opened) {
+                    window.location.href = url;
+                }
+            }
+
+            function onEstActionSecondaryClick() {
+                if (estimateSubView === EST_SUB_SCHEDULE) {
+                    openRoughStep();
+                } else if (estimateSubView === EST_SUB_MATERIALS) {
+                    openMaxRepairRequest();
+                } else {
+                    openScheduleStep();
+                }
             }
 
             function renderEstimate() {
@@ -2633,7 +2769,7 @@
                 if (state.screen === SCREEN_ESTIMATE) {
                     showEstimateSubView(state.estView || EST_SUB_ESTIMATE, true);
                 }
-                updatePageBackBtn();
+                updateStepper();
             }
 
             function onAppPopState(e) {
@@ -2664,7 +2800,7 @@
                     showMaterialsHub();
                     renderCategoryHub();
                 }
-                updatePageBackBtn();
+                updateStepper();
             }
 
             function showScreen(index) {
@@ -2691,8 +2827,159 @@
                 return false;
             }
 
-            function updatePageBackBtn() {
-                if (pageBackBtn) pageBackBtn.hidden = !canAppGoBack();
+            var STEP_PARAMS = 0;
+            var STEP_AREAS = 1;
+            var STEP_WORKS = 2;
+            var STEP_ESTIMATE = 3;
+            var STEP_SCHEDULE = 4;
+            var STEP_ROUGH = 5;
+            var STEP_FINISH = 6;
+
+            function getCurrentStepIndex() {
+                if (currentScreen === SCREEN_ESTIMATE) {
+                    if (estimateSubView === EST_SUB_SCHEDULE) return STEP_SCHEDULE;
+                    if (estimateSubView === EST_SUB_MATERIALS) return STEP_FINISH;
+                    return STEP_ESTIMATE;
+                }
+                if (currentScreen === SCREEN_MATERIALS) return STEP_WORKS;
+                if (currentScreen === SCREEN_RESULTS) return STEP_AREAS;
+                return STEP_PARAMS;
+            }
+
+            function canGoToStep(step) {
+                if (step === STEP_PARAMS) return true;
+                if (!hasResults) return false;
+                if (step <= STEP_WORKS) return true;
+                if (!collectCheckedSubtopicKeys().length) return false;
+                return true;
+            }
+
+            function updateStepper() {
+                if (!pageStepper) return;
+                var current = getCurrentStepIndex();
+                pageStepper.querySelectorAll('.stepper__item').forEach(function (btn) {
+                    var step = parseInt(btn.getAttribute('data-step'), 10);
+                    btn.classList.toggle('is-active', step === current);
+                    btn.classList.toggle('is-done', step < current);
+                    btn.disabled = !canGoToStep(step);
+                });
+                pageStepper.querySelectorAll('.stepper__dash').forEach(function (dash) {
+                    var after = parseInt(dash.getAttribute('data-after'), 10);
+                    dash.classList.toggle('is-done', after < current);
+                });
+            }
+
+            function openScheduleStep() {
+                var ctx = syncEstimateEngineContext();
+                if (!ctx) {
+                    alert('Отметьте хотя бы один раздел материалов');
+                    return false;
+                }
+                if (!CmetShared.buildScheduleTimelinePanelHtml) {
+                    alert('Модуль этапов не загружен');
+                    return false;
+                }
+                if (currentScreen !== SCREEN_ESTIMATE) {
+                    if (!renderEstimate()) return false;
+                    showScreen(SCREEN_ESTIMATE);
+                }
+                if (estimateScheduleBody) {
+                    estimateScheduleBody.innerHTML = CmetShared.buildScheduleTimelinePanelHtml(ctx.engineCalc);
+                }
+                showEstimateSubView(EST_SUB_SCHEDULE);
+                if (estimateScheduleWrap) {
+                    estimateScheduleWrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }
+                return true;
+            }
+
+            function openRoughStep() {
+                if (!lastCalc) {
+                    alert('Сначала выполните расчёт площадей');
+                    return false;
+                }
+                if (!CmetShared.getBasketUrl) {
+                    alert('Модуль корзины не загружен');
+                    return false;
+                }
+                var ctx = syncEstimateEngineContext();
+                if (!ctx) {
+                    alert('Отметьте хотя бы один раздел материалов');
+                    return false;
+                }
+                if (currentScreen !== SCREEN_ESTIMATE) {
+                    if (!renderEstimate()) return false;
+                    showScreen(SCREEN_ESTIMATE);
+                } else if (estimateSubView !== EST_SUB_ESTIMATE) {
+                    showEstimateSubView(EST_SUB_ESTIMATE);
+                }
+                openLemanaBasketUrl(CmetShared.getBasketUrl(ctx.engineCalc, ctx.ch));
+                updateStepper();
+                return true;
+            }
+
+            function openFinishStep() {
+                var ctx = syncEstimateEngineContext();
+                if (!ctx) {
+                    alert('Отметьте хотя бы один раздел материалов');
+                    return false;
+                }
+                if (!CmetShared.buildMaterialsListHtml) {
+                    alert('Модуль материалов не загружен');
+                    return false;
+                }
+                if (currentScreen !== SCREEN_ESTIMATE) {
+                    if (!renderEstimate()) return false;
+                    showScreen(SCREEN_ESTIMATE);
+                }
+                var materialsHtml = CmetShared.buildMaterialsListHtml();
+                if (!materialsHtml || materialsHtml.indexOf('material-category-card') < 0) {
+                    materialsHtml = '<p class="estimate-materials-empty">Нет выбранных материалов</p>';
+                }
+                if (estimateMaterialsBody) {
+                    estimateMaterialsBody.innerHTML = materialsHtml;
+                }
+                showEstimateSubView(EST_SUB_MATERIALS);
+                if (estimateMaterialsWrap) {
+                    estimateMaterialsWrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }
+                return true;
+            }
+
+            function goToStep(step) {
+                if (!canGoToStep(step)) return;
+                if (step === getCurrentStepIndex()) return;
+                if (step === STEP_PARAMS) {
+                    showScreen(SCREEN_INPUT);
+                    return;
+                }
+                if (step === STEP_AREAS) {
+                    showScreen(SCREEN_RESULTS);
+                    return;
+                }
+                if (step === STEP_WORKS) {
+                    showScreen(SCREEN_MATERIALS);
+                    return;
+                }
+                if (step === STEP_ESTIMATE) {
+                    if (currentScreen === SCREEN_ESTIMATE && estimateSubView !== EST_SUB_ESTIMATE) {
+                        showEstimateSubView(EST_SUB_ESTIMATE);
+                        return;
+                    }
+                    goToEstimate();
+                    return;
+                }
+                if (step === STEP_SCHEDULE) {
+                    openScheduleStep();
+                    return;
+                }
+                if (step === STEP_ROUGH) {
+                    openRoughStep();
+                    return;
+                }
+                if (step === STEP_FINISH) {
+                    openFinishStep();
+                }
             }
 
             function navForward() {
@@ -2756,7 +3043,7 @@
                 if (estPanelBody) estPanelBody.innerHTML = bodyHtml || '';
                 estPanelOverlay.hidden = false;
                 if (!historyApplying) pushAppHistory();
-                updatePageBackBtn();
+                updateStepper();
             }
 
             function closeEstPanel() {
@@ -2818,24 +3105,7 @@
             }
 
             if (estBtnSchedule) {
-                estBtnSchedule.addEventListener('click', function () {
-                    var ctx = syncEstimateEngineContext();
-                    if (!ctx) {
-                        alert('Отметьте хотя бы один раздел материалов');
-                        return;
-                    }
-                    if (!CmetShared.buildScheduleTimelinePanelHtml) {
-                        alert('Модуль этапов не загружен');
-                        return;
-                    }
-                    if (estimateScheduleBody) {
-                        estimateScheduleBody.innerHTML = CmetShared.buildScheduleTimelinePanelHtml(ctx.engineCalc);
-                    }
-                    showEstimateSubView(EST_SUB_SCHEDULE);
-                    if (estimateScheduleWrap) {
-                        estimateScheduleWrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                    }
-                });
+                estBtnSchedule.addEventListener('click', onEstActionSecondaryClick);
             }
 
             function openLemanaBasketUrl(url) {
@@ -2846,51 +3116,6 @@
                 window.open(url, '_blank', 'noopener,noreferrer');
             }
 
-            if (estBtnRough) {
-                estBtnRough.addEventListener('click', function () {
-                    if (!lastCalc) {
-                        alert('Сначала выполните расчёт площадей');
-                        return;
-                    }
-                    if (!CmetShared.getBasketUrl) {
-                        alert('Модуль корзины не загружен');
-                        return;
-                    }
-                    var ctx = syncEstimateEngineContext();
-                    if (!ctx) {
-                        alert('Отметьте хотя бы один раздел материалов');
-                        return;
-                    }
-                    var url = CmetShared.getBasketUrl(ctx.engineCalc, ctx.ch);
-                    openLemanaBasketUrl(url);
-                });
-            }
-
-            if (estBtnFinish) {
-                estBtnFinish.addEventListener('click', function () {
-                    var ctx = syncEstimateEngineContext();
-                    if (!ctx) {
-                        alert('Отметьте хотя бы один раздел материалов');
-                        return;
-                    }
-                    if (!CmetShared.buildMaterialsListHtml) {
-                        alert('Модуль материалов не загружен');
-                        return;
-                    }
-                    var materialsHtml = CmetShared.buildMaterialsListHtml();
-                    if (!materialsHtml || materialsHtml.indexOf('material-category-card') < 0) {
-                        materialsHtml = '<p class="estimate-materials-empty">Нет выбранных материалов</p>';
-                    }
-                    if (estimateMaterialsBody) {
-                        estimateMaterialsBody.innerHTML = materialsHtml;
-                    }
-                    showEstimateSubView(EST_SUB_MATERIALS);
-                    if (estimateMaterialsWrap) {
-                        estimateMaterialsWrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                    }
-                });
-            }
-
             if (estPanelClose) estPanelClose.addEventListener('click', closeEstPanel);
             if (estPanelOverlay) {
                 estPanelOverlay.addEventListener('click', function (e) {
@@ -2899,11 +3124,18 @@
             }
 
             toMaterialsBtn.addEventListener('click', goToMaterials);
+            if (materialsDetailSelectBtn) materialsDetailSelectBtn.addEventListener('click', goToMaterials);
             toEstimateBtn.addEventListener('click', goToEstimate);
-            if (pageBackBtn) pageBackBtn.addEventListener('click', navBack);
+            if (pageStepper) {
+                pageStepper.addEventListener('click', function (e) {
+                    var btn = e.target.closest('.stepper__item[data-step]');
+                    if (!btn || btn.disabled) return;
+                    goToStep(parseInt(btn.getAttribute('data-step'), 10));
+                });
+            }
             initSwipeNavigation();
             initPhoneBackNavigation();
-            updatePageBackBtn();
+            updateStepper();
 
             qtyDialogCancel.addEventListener('click', closeQtyDialog);
             qtyDialogOk.addEventListener('click', confirmQtyDialog);
