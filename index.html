@@ -2180,6 +2180,7 @@
                 }
                 qtyDialog.hidden = false;
                 bindQtyDialogViewport();
+                if (!historyApplying) pushAppHistory();
                 setTimeout(function () {
                     qtyDialogInput.focus();
                     qtyDialogInput.select();
@@ -2189,9 +2190,11 @@
             }
 
             function closeQtyDialog() {
-                unbindQtyDialogViewport();
-                qtyDialog.hidden = true;
-                qtyEditContext = null;
+                if (qtyDialog && !qtyDialog.hidden && history.state && history.state.overlay === 'qty' && !historyApplying) {
+                    history.back();
+                    return;
+                }
+                closeQtyDialogSilent();
             }
 
             function applyItemQty(cat, itemId, qty, thicknessMm) {
@@ -2271,6 +2274,7 @@
                 materialsDetailHint.textContent = getCategoryHint(cat);
                 renderMaterialOptions();
                 updateNav();
+                if (!historyApplying) pushAppHistory();
             }
 
             function closeCategoryDetail() {
@@ -2503,11 +2507,12 @@
             var EST_SUB_SCHEDULE = 'schedule';
             var EST_SUB_MATERIALS = 'materials';
 
-            function showEstimateSubView(view) {
+            function showEstimateSubView(view, skipHistory) {
                 estimateSubView = view;
                 if (estimateContent) estimateContent.hidden = view !== EST_SUB_ESTIMATE;
                 if (estimateScheduleWrap) estimateScheduleWrap.hidden = view !== EST_SUB_SCHEDULE;
                 if (estimateMaterialsWrap) estimateMaterialsWrap.hidden = view !== EST_SUB_MATERIALS;
+                if (!skipHistory && !historyApplying) pushAppHistory();
             }
 
             function renderEstimate() {
@@ -2543,7 +2548,7 @@
                     if (table && CmetShared.refreshEstimateTotalsForTable) {
                         CmetShared.refreshEstimateTotalsForTable(table);
                     }
-                    showEstimateSubView(EST_SUB_ESTIMATE);
+                    showEstimateSubView(EST_SUB_ESTIMATE, true);
                 } catch (err) {
                     console.error(err);
                     alert('Ошибка формирования сметы: ' + (err && err.message ? err.message : String(err)));
@@ -2559,17 +2564,93 @@
             }
 
             function updateNav() {
-                navPrev.disabled = currentScreen === SCREEN_INPUT;
+                navPrev.disabled = !canAppGoBack();
             }
 
-            function showScreen(index) {
+            var historyApplying = false;
+
+            function buildAppHistoryState() {
+                var overlay = null;
+                if (qtyDialog && !qtyDialog.hidden) overlay = 'qty';
+                else if (estPanelOverlay && !estPanelOverlay.hidden) overlay = 'panel';
+                return {
+                    app: 'cmet',
+                    screen: currentScreen,
+                    category: materialsDetailOpen && activeCategoryId ? activeCategoryId : null,
+                    estView: estimateSubView,
+                    overlay: overlay
+                };
+            }
+
+            function pushAppHistory() {
+                if (historyApplying) return;
+                try {
+                    history.pushState(buildAppHistoryState(), '', location.pathname + location.search);
+                } catch (err) { /* ignore */ }
+            }
+
+            function closeQtyDialogSilent() {
+                if (!qtyDialog || qtyDialog.hidden) return;
+                unbindQtyDialogViewport();
+                qtyDialog.hidden = true;
+                qtyEditContext = null;
+            }
+
+            function closeEstPanelSilent() {
+                if (estPanelOverlay) estPanelOverlay.hidden = true;
+                if (estPanelBody) estPanelBody.innerHTML = '';
+            }
+
+            function applyAppHistoryState(state) {
+                if (!state || state.app !== 'cmet') state = { app: 'cmet', screen: SCREEN_INPUT, category: null, estView: EST_SUB_ESTIMATE, overlay: null };
+
+                closeQtyDialogSilent();
+                closeEstPanelSilent();
+
+                showScreenInternal(state.screen);
+
+                if (state.screen === SCREEN_MATERIALS && state.category) {
+                    var cat = getCategoryById(state.category);
+                    if (cat) {
+                        activeCategoryId = state.category;
+                        materialsDetailOpen = true;
+                        materialsHub.hidden = true;
+                        materialsDetail.hidden = false;
+                        materialsDetailTitle.textContent = cat.title;
+                        materialsDetailHint.textContent = getCategoryHint(cat);
+                        renderMaterialOptions();
+                    }
+                }
+
+                if (state.screen === SCREEN_ESTIMATE) {
+                    showEstimateSubView(state.estView || EST_SUB_ESTIMATE, true);
+                }
+
+                updateNav();
+            }
+
+            function onAppPopState(e) {
+                historyApplying = true;
+                try {
+                    applyAppHistoryState(e.state);
+                } finally {
+                    historyApplying = false;
+                }
+            }
+
+            function initPhoneBackNavigation() {
+                history.replaceState(buildAppHistoryState(), '', location.pathname + location.search);
+                window.addEventListener('popstate', onAppPopState);
+            }
+
+            function showScreenInternal(index) {
                 currentScreen = index;
                 screenInput.hidden = index !== SCREEN_INPUT;
                 screenResults.hidden = index !== SCREEN_RESULTS;
                 screenMaterials.hidden = index !== SCREEN_MATERIALS;
                 screenEstimate.hidden = index !== SCREEN_ESTIMATE;
                 if (index !== SCREEN_ESTIMATE && estimateSubView !== EST_SUB_ESTIMATE) {
-                    showEstimateSubView(EST_SUB_ESTIMATE);
+                    showEstimateSubView(EST_SUB_ESTIMATE, true);
                 }
                 if (index === SCREEN_MATERIALS) {
                     showMaterialsHub();
@@ -2578,25 +2659,28 @@
                 updateNav();
             }
 
+            function showScreen(index) {
+                showScreenInternal(index);
+                if (!historyApplying) pushAppHistory();
+            }
+
             function goToMaterials() {
                 if (!hasResults) return;
                 showScreen(SCREEN_MATERIALS);
             }
 
             function navBack() {
-                if (currentScreen === SCREEN_MATERIALS && materialsDetailOpen) {
-                    closeCategoryDetail();
-                    return;
-                }
-                if (currentScreen === SCREEN_ESTIMATE) {
-                    if (estimateSubView === EST_SUB_SCHEDULE || estimateSubView === EST_SUB_MATERIALS) {
-                        showEstimateSubView(EST_SUB_ESTIMATE);
-                        return;
-                    }
-                    showScreen(SCREEN_MATERIALS);
-                    return;
-                }
-                if (currentScreen > 0) showScreen(currentScreen - 1);
+                if (canAppGoBack()) history.back();
+            }
+
+            function canAppGoBack() {
+                if (qtyDialog && !qtyDialog.hidden) return true;
+                if (estPanelOverlay && !estPanelOverlay.hidden) return true;
+                if (currentScreen === SCREEN_MATERIALS && materialsDetailOpen) return true;
+                if (currentScreen === SCREEN_ESTIMATE && estimateSubView !== EST_SUB_ESTIMATE) return true;
+                if (currentScreen === SCREEN_ESTIMATE) return true;
+                if (currentScreen > SCREEN_INPUT) return true;
+                return false;
             }
 
             function navForward() {
@@ -2661,11 +2745,15 @@
                 if (estPanelTitle) estPanelTitle.textContent = title;
                 if (estPanelBody) estPanelBody.innerHTML = bodyHtml || '';
                 estPanelOverlay.hidden = false;
+                if (!historyApplying) pushAppHistory();
             }
 
             function closeEstPanel() {
-                if (estPanelOverlay) estPanelOverlay.hidden = true;
-                if (estPanelBody) estPanelBody.innerHTML = '';
+                if (estPanelOverlay && !estPanelOverlay.hidden && history.state && history.state.overlay === 'panel' && !historyApplying) {
+                    history.back();
+                    return;
+                }
+                closeEstPanelSilent();
             }
 
             function ensurePanelsContext() {
@@ -2802,6 +2890,7 @@
             toMaterialsBtn.addEventListener('click', goToMaterials);
             toEstimateBtn.addEventListener('click', goToEstimate);
             initSwipeNavigation();
+            initPhoneBackNavigation();
 
             qtyDialogCancel.addEventListener('click', closeQtyDialog);
             qtyDialogOk.addEventListener('click', confirmQtyDialog);
