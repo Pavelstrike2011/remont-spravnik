@@ -2449,7 +2449,7 @@
                 showScreen(SCREEN_MATERIALS);
             }
 
-            navPrev.addEventListener('click', function () {
+            function navBack() {
                 if (currentScreen === SCREEN_MATERIALS && materialsDetailOpen) {
                     closeCategoryDetail();
                     return;
@@ -2463,7 +2463,64 @@
                     return;
                 }
                 if (currentScreen > 0) showScreen(currentScreen - 1);
-            });
+            }
+
+            function navForward() {
+                if (currentScreen === SCREEN_INPUT) {
+                    if (hasResults) showScreen(SCREEN_RESULTS);
+                    return;
+                }
+                if (currentScreen === SCREEN_RESULTS) {
+                    if (hasResults) showScreen(SCREEN_MATERIALS);
+                    return;
+                }
+                if (currentScreen === SCREEN_MATERIALS) {
+                    if (materialsDetailOpen) return;
+                    goToEstimate();
+                    return;
+                }
+            }
+
+            function isSwipeNavigationBlocked() {
+                if (qtyDialog && !qtyDialog.hidden) return true;
+                if (estPanelOverlay && !estPanelOverlay.hidden) return true;
+                return false;
+            }
+
+            function initSwipeNavigation() {
+                var pageMain = document.querySelector('main.page');
+                if (!pageMain) return;
+                var SWIPE_MIN_PX = 72;
+                var startX = 0;
+                var startY = 0;
+                var tracking = false;
+
+                pageMain.addEventListener('touchstart', function (e) {
+                    if (isSwipeNavigationBlocked() || !e.touches || e.touches.length !== 1) return;
+                    var t = e.touches[0];
+                    startX = t.clientX;
+                    startY = t.clientY;
+                    tracking = true;
+                }, { passive: true });
+
+                pageMain.addEventListener('touchend', function (e) {
+                    if (!tracking || isSwipeNavigationBlocked() || !e.changedTouches || !e.changedTouches.length) return;
+                    tracking = false;
+                    var t = e.changedTouches[0];
+                    var dx = t.clientX - startX;
+                    var dy = t.clientY - startY;
+                    if (Math.abs(dx) < SWIPE_MIN_PX) return;
+                    if (Math.abs(dx) <= Math.abs(dy)) return;
+                    if (dx < 0) navForward();
+                    else navBack();
+                }, { passive: true });
+
+                pageMain.addEventListener('touchcancel', function () {
+                    tracking = false;
+                }, { passive: true });
+            }
+
+            navPrev.addEventListener('click', navBack);
 
             function openEstPanel(title, bodyHtml) {
                 if (!estPanelOverlay) return;
@@ -2607,6 +2664,7 @@
 
             toMaterialsBtn.addEventListener('click', goToMaterials);
             toEstimateBtn.addEventListener('click', goToEstimate);
+            initSwipeNavigation();
 
             qtyDialogCancel.addEventListener('click', closeQtyDialog);
             qtyDialogOk.addEventListener('click', confirmQtyDialog);
