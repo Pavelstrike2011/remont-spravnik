@@ -177,6 +177,52 @@ function isWallPuttySpravType(t) {
     return t === 'putty' || t === 'puttyWallpaper' || t === 'puttyPaint';
 }
 
+function hasWallpaperWallScope(sm) {
+    if (!sm) return false;
+    if (sm.wallsVariants && sm.wallsVariants.length) {
+        return sm.wallsVariants.some(function (v) { return v && v.type === 'wallpaper'; });
+    }
+    return Boolean(sm.walls && sm.walls.type === 'wallpaper');
+}
+
+/** Типы чистовой отделки стен без грунтовки CT17 (Радуга-27 — обои, покраска, декоративная штукатурка). */
+function isWallFinishWithoutCt17(t) {
+    return t === 'wallpaper' || t === 'paint' || t === 'panels' || t === 'gypsumFrame' || t === 'decorative';
+}
+
+function hasDecorativeWallScope(sm) {
+    if (!sm) return false;
+    if (sm.walls && sm.walls.type === 'decorative') return true;
+    if (sm.wallsVariants && sm.wallsVariants.length) {
+        return sm.wallsVariants.some(function (v) { return v && v.type === 'decorative'; });
+    }
+    return false;
+}
+
+/** Площадь стен под пропитку Радуга-27 — обои и покраска (корзина; в смете — в строке «Грунтовка акриловая стен»). */
+function computeRadugaWallpaperPaintSqm(sm) {
+    if (!sm) return 0;
+    let total = 0;
+    getLivingWallFinishVariants(sm).forEach(function (wv) {
+        if (!wv || (wv.type !== 'wallpaper' && wv.type !== 'paint')) return;
+        const sq = parseAreaStringToSqm(wv.area);
+        if (sq != null && sq > 0) total += sq;
+    });
+    return total;
+}
+
+/** Площадь декоративной штукатурки стен под Радуга-27 (корзина; в смете — в строке «Грунтовка акриловая стен»). */
+function computeRadugaDecorativeWallSqm(sm) {
+    if (!sm) return 0;
+    let total = 0;
+    getLivingWallFinishVariants(sm).forEach(function (wv) {
+        if (!wv || wv.type !== 'decorative') return;
+        const sq = parseAreaStringToSqm(wv.area);
+        if (sq != null && sq > 0) total += sq;
+    });
+    return total;
+}
+
 function wallPuttyLayersForType(t) {
     return t === 'puttyPaint' ? 3 : 2;
 }
@@ -217,6 +263,7 @@ function computeTotalWallLivingPrimerSqm(sm) {
         }
     });
     getLivingWallFinishVariants(sm).forEach(function (wv) {
+        if (!wv || isWallFinishWithoutCt17(wv.type)) return;
         const sq = parseAreaStringToSqm(wv.area);
         if (sq != null && sq > 0) total += sq;
     });
@@ -277,8 +324,10 @@ function hasLivingWallEstimateWorks(sm) {
 
 function buildLivingWallsEstimateItems(sm) {
     const items = [];
-    const totalPrimer = computeTotalWallLivingPrimerSqm(sm);
-    if (totalPrimer > 0) pushWallAcrylicPrimerLine(items, totalPrimer);
+    const ct17WallSqm = computeTotalWallLivingPrimerSqm(sm);
+    const radugaWallSqm = computeRadugaWallpaperPaintSqm(sm) + computeRadugaDecorativeWallSqm(sm);
+    const wallPrimerEstimateSqm = ct17WallSqm + radugaWallSqm;
+    if (wallPrimerEstimateSqm > 0) pushWallAcrylicPrimerLine(items, wallPrimerEstimateSqm);
 
     const plasterAreaSqmTotal = getWallPlasterAreaSqm(sm.additionalWalls);
     if (plasterAreaSqmTotal > 0) {
@@ -892,6 +941,33 @@ function hasTileWorkScope(sm) {
     return false;
 }
 
+/** Керамогранит в смете: жилые стены/пол, санузел, фартук, поддон — без монтажной пены и пистолета (этап 8). */
+function hasPorcelainTileScopeInSm(sm) {
+    if (!sm) return false;
+    if (sm.bathroomPorcelainTrayEnabled) return true;
+    function variantHasPorcelain(arr) {
+        return arr && arr.some(function (v) { return v && v.type === 'porcelain'; });
+    }
+    if (sm.floors && sm.floors.type === 'porcelain') return true;
+    if (variantHasPorcelain(sm.floorsVariants)) return true;
+    if (sm.walls && sm.walls.type === 'porcelain') return true;
+    if (variantHasPorcelain(sm.wallsVariants)) return true;
+    if (sm.bathroomFloors && sm.bathroomFloors.type === 'porcelain') return true;
+    if (variantHasPorcelain(sm.bathroomFloorsVariants)) return true;
+    if (sm.wallTile && sm.wallTile.type === 'porcelain') return true;
+    if (variantHasPorcelain(sm.wallTileVariants)) return true;
+    if ((sm.additionalWalls || []).some(function (m) { return m && m.type === 'ceramicGraniteApron'; })) return true;
+    return false;
+}
+
+function shouldOmitStage8FoamGun(sm, mosaicSqmVal) {
+    if ((parseFloat(mosaicSqmVal) || 0) > 0) return true;
+    if (hasPorcelainTileScopeInSm(sm)) return true;
+    if (hasWallpaperWallScope(sm)) return true;
+    if (hasDecorativeWallScope(sm)) return true;
+    return false;
+}
+
 /** Сумма м² по variants с укладкой плитки; если площади не заданы — fallbackSqm при наличии таких variants. */
 function sumTileLayingAreaFromVariants(variants, fallbackSqm) {
     if (!variants || !variants.length) return 0;
@@ -949,16 +1025,75 @@ function ceramicPorcelainTileAreaSqm(sm, calc) {
     return total;
 }
 
+/** Площадь мозаики — стены/пол санузла, пол жилых комнат. */
+function mosaicTileAreaSqm(sm, calc) {
+    if (!sm) return 0;
+    const lam = (calc && calc.materials && calc.materials.laminate) || 0;
+    const floorTile = (calc && calc.materials && calc.materials.floorTile) || 0;
+    const wallTile = (calc && calc.materials && calc.materials.wallTile) || 0;
+
+    let livingFloorTileArea = 0;
+    if (sm.floorsVariants && sm.floorsVariants.length) {
+        livingFloorTileArea = sumTileLayingAreaFromVariants(sm.floorsVariants, lam);
+    } else if (sm.floors && isTileLayingType(sm.floors.type)) {
+        const sq = sm.floors.area ? parseAreaStringToSqm(sm.floors.area) : null;
+        livingFloorTileArea = (sq != null && sq > 0) ? sq : lam;
+    }
+
+    let total = 0;
+    getBathroomWallTileVariants(sm).forEach(function (wt) {
+        if (!wt || !isTileLayingType(wt.type) || wt.type !== 'mosaic') return;
+        const sq = wt.area ? parseAreaStringToSqm(wt.area) : null;
+        total += (sq != null && sq > 0) ? sq : wallTile;
+    });
+    getBathroomFloorFinishVariants(sm).forEach(function (bf) {
+        if (!bf || !isTileLayingType(bf.type) || bf.type !== 'mosaic') return;
+        const sq = bf.area ? parseAreaStringToSqm(bf.area) : null;
+        total += (sq != null && sq > 0) ? sq : floorTile;
+    });
+    if (sm.floorsVariants && sm.floorsVariants.length) {
+        sm.floorsVariants.forEach(function (f) {
+            if (!f || !isTileLayingType(f.type) || f.type !== 'mosaic') return;
+            const sq = f.area ? parseAreaStringToSqm(f.area) : null;
+            total += (sq != null && sq > 0) ? sq : livingFloorTileArea;
+        });
+    } else if (sm.floors && isTileLayingType(sm.floors.type) && sm.floors.type === 'mosaic') {
+        total += livingFloorTileArea;
+    }
+    return total;
+}
+
 /** Мешки под мусор при укладке керамики/керамогранита: ⌈S / 5⌉ шт. */
 function tileMusorBagsFromAreaSqm(sqm) {
     if (!(sqm > 0)) return 0;
     return Math.ceil(sqm / 5);
 }
 
+/** Клей для мозаики Litoplus K55 (11169661): 1,95 кг/м², мешок 25 кг → S×1,95/25 (округление в add). */
+const MOSAIC_GLUE_KG_PER_SQM = 1.95;
+const MOSAIC_GLUE_BAG_KG = 25;
+
+function mosaicGlueBagsFromSqm(sqm) {
+    if (!(sqm > 0)) return 0;
+    return sqm * MOSAIC_GLUE_KG_PER_SQM / MOSAIC_GLUE_BAG_KG;
+}
+
+/** Мешки под мусор при укладке мозаики: max(1, ⌈S / 20⌉). */
+function mosaicMusorBagsFromSqm(sqm) {
+    return musorBagsMinOnePerSqm(sqm, 20);
+}
+
 /** Мешки 17968499: max(1, ⌈S / sqmPerBag⌉). */
 function musorBagsMinOnePerSqm(sqm, sqmPerBag) {
     if (!(sqm > 0) || !(sqmPerBag > 0)) return 0;
     return Math.max(1, Math.ceil(sqm / sqmPerBag));
+}
+
+/** Губки шлифовальные P120/P180: ⌈S / 100⌉ шт. каждой — только при шпаклёвке. */
+function addPuttySandingSponges(addFn, stageNum, sqm) {
+    if (!(sqm > 0) || !addFn) return;
+    addFn(stageNum, 18783904, sqm / 100);
+    addFn(stageNum, 18782696, sqm / 100);
 }
 
 function additionalFloorItemSqm(m) {
@@ -1148,6 +1283,7 @@ function computeMusorBagCount(sm, calc) {
         if (gSq > 0) bags += Math.ceil(gSq / 30) * MUSOR_BAGS_PER_PACK;
     }
     bags += tileMusorBagsFromAreaSqm(ceramicPorcelainTileAreaSqm(sm, calc));
+    bags += mosaicMusorBagsFromSqm(mosaicTileAreaSqm(sm, calc));
     bags += computeLivingFloorFinishMusorBags(sm, calc);
     bags += computePlasterScreedSelfLevelMusorBags(sm);
     bags += computePorcelainTrayMusorBags(sm);
@@ -3128,12 +3264,13 @@ function exportMaterialsLinksToExcel(address) {
             || (selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.length > 1)
             || (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.length > 0)
         );
-        /* СТ17 этап 6 по площади стен плана — только при отделке стен или «тяжёлых» перегородках; не при одних только ГКЛ (каркас/короб). */
+        /* СТ17 этап 6: штукатурка/шпаклёvka/плитка; не обои/покраска (Радуга-27), не ГКЛ и не панели ПВХ. */
         const hasPartitionScopeForStage6WallPrimer = hasHeavyPartitionForSharedStages;
         const hasBathroomFloorScope = Boolean(selectedMaterials.bathroomFloors);
         const hasBathPlasterUnderTileSprav = selectedMaterials.additionalWallTile && selectedMaterials.additionalWallTile.some(function (m) { return m.type === 'plaster'; });
         const hasBathroomWallTileScope = Boolean(selectedMaterials.wallTile) || hasBathPlasterUnderTileSprav;
-        const wallSqForStage6Primer = (hasWallFinishScope || hasPartitionScopeForStage6WallPrimer) ? wallMaterialArea : 0;
+        const wallSqForStage6Primer = computeTotalWallLivingPrimerSqm(selectedMaterials)
+            + (hasPartitionScopeForStage6WallPrimer ? wallMaterialArea : 0);
         const floorTileSqForPrimer = hasBathroomFloorScope ? floorTileArea : 0;
         let wallTileSqForPrimerVal = wallTileArea;
         if (hasBathPlasterUnderTileSprav) {
@@ -3509,13 +3646,12 @@ function exportMaterialsLinksToExcel(address) {
                 add(6, 12757510, extraFloorSqmForCt17 * floorPrimerLayersForCt17 * 0.015); // стяжка/наливной без покрытия в модалке — как смета «только доп. полы»
             }
         }
-        const radugaWallFinishTypes = new Set(['wallpaper', 'paint', 'decorative']);
-        const wallSqForRaduga = (selectedMaterials.walls && radugaWallFinishTypes.has(selectedMaterials.walls.type))
-            ? wallMaterialArea
-            : 0;
         const hasCeilingPaintForRaduga = selectedMaterials.ceilings && selectedMaterials.ceilings.some(c => c.type === 'paintCeiling');
         let radugaLiters = 0;
-        if (wallSqForRaduga > 0) radugaLiters += wallSqForRaduga * 0.015;
+        const radugaWallpaperPaintSqm = computeRadugaWallpaperPaintSqm(selectedMaterials);
+        if (radugaWallpaperPaintSqm > 0) radugaLiters += radugaWallpaperPaintSqm * 0.015;
+        const radugaDecorativeSqm = computeRadugaDecorativeWallSqm(selectedMaterials);
+        if (radugaDecorativeSqm > 0) radugaLiters += radugaDecorativeSqm * 0.015;
         if (hasCeilingPaintForRaduga && ceilingArea > 0) radugaLiters += ceilingArea * 0.015;
         if (radugaLiters > 0) add(6, 12037193, radugaLiters); // Пропитка Радуга-27 — обои / покраска / дек. штукатурка стен + покраска потолка
 
@@ -3552,10 +3688,10 @@ function exportMaterialsLinksToExcel(address) {
             add(6, 16126441, bathBeaconQty); add(6, 15534291, (bathBeaconQty * 6) / 25);
             beaconFastenerPiecesWallPlaster += bathBeaconQty * 6;
         }
-        if (selectedMaterials.walls && selectedMaterials.walls.type !== 'panels') {
+        if (selectedMaterials.walls && selectedMaterials.walls.type !== 'panels' && selectedMaterials.walls.type !== 'gypsumFrame') {
             const isTileWall = selectedMaterials.walls.type === 'tile' || selectedMaterials.walls.type === 'porcelain';
             const isDecorativeWall = selectedMaterials.walls.type === 'decorative';
-            if (!hasWallPlaster && !isTileWall && !isDecorativeWall) {
+            if (!hasWallPlaster && !isTileWall && !isDecorativeWall && !hasWallpaperWallScope(selectedMaterials)) {
                 add(6, 10073940, 1);
             }
         }
@@ -3564,6 +3700,7 @@ function exportMaterialsLinksToExcel(address) {
             if (hasWallPuttyPaintSprav) {
                 add(6, 89434298, wallPuttyMaterialArea / 18);
             }
+            addPuttySandingSponges(add, 6, wallPuttyMaterialArea);
         }
 
         if (selectedMaterials.additionalFloors && selectedMaterials.additionalFloors.length > 0) {
@@ -3691,15 +3828,6 @@ function exportMaterialsLinksToExcel(address) {
         }
         const totalTileArea = tileTotalArea + livingFloorTileArea;
 
-        const hasPorcelainTileScope = Boolean(
-            (selectedMaterials.floors && selectedMaterials.floors.type === 'porcelain')
-            || (selectedMaterials.walls && selectedMaterials.walls.type === 'porcelain')
-            || (selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.some(function (v) { return v && v.type === 'porcelain'; }))
-            || (selectedMaterials.bathroomFloors && selectedMaterials.bathroomFloors.type === 'porcelain')
-            || (selectedMaterials.wallTile && selectedMaterials.wallTile.type === 'porcelain')
-            || (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.some(function (m) { return m && m.type === 'ceramicGraniteApron'; }))
-        );
-
         const hasStage8ToolsScope = totalTileArea > 0
             || hasWallFinishScope
             || hasHeavyPartitionForSharedStages
@@ -3724,10 +3852,11 @@ function exportMaterialsLinksToExcel(address) {
         const hasPrimingWorkForBrush = groundArea > 0
             || (selectedMaterials.floors && livingFloorSqmForCt17 > 0)
             || hasCeilingPrimingBrush;
-        const hasWallpaperForBrush = Boolean(selectedMaterials.walls && selectedMaterials.walls.type === 'wallpaper' && wallMaterialArea > 0);
+        const hasWallpaperForBrush = hasWallpaperWallScope(selectedMaterials) && wallMaterialArea > 0;
         const hasWallPaintForBrush = Boolean(selectedMaterials.walls && selectedMaterials.walls.type === 'paint' && wallMaterialArea > 0);
+        const hasDecorativeWallForBrush = hasDecorativeWallScope(selectedMaterials) && computeRadugaDecorativeWallSqm(selectedMaterials) > 0;
         const hasCeilingPaintForBrush = Boolean(hasCeilingPaintForRaduga && ceilingArea > 0);
-        const hasPaintBrushScope = hasPrimingWorkForBrush || hasWallpaperForBrush || hasWallPaintForBrush || hasCeilingPaintForBrush;
+        const hasPaintBrushScope = hasPrimingWorkForBrush || hasWallpaperForBrush || hasWallPaintForBrush || hasDecorativeWallForBrush || hasCeilingPaintForBrush;
 
         let mosaicSqm = 0;
         let nonMosaicSqm = 0;
@@ -3760,15 +3889,23 @@ function exportMaterialsLinksToExcel(address) {
         }
 
         if (totalTileArea > 0) {
-            add(7, 14886543, totalTileArea * 5 / 25); add(7, 10977309, totalTileArea / 4); add(7, 81933319, 1); add(7, 82372585, 1);
-            if (mosaicSqm > 0) add(7, 81947846, 1); // Гладилка Intek 4×4 — мозаика
+            const regularTileGlueSqm = Math.max(0, totalTileArea - mosaicSqm);
+            if (regularTileGlueSqm > 0) {
+                add(7, 14886543, regularTileGlueSqm * 5 / 25);
+            }
+            add(7, 10977309, totalTileArea / 4); add(7, 81933319, 1); add(7, 82372585, 1);
+            if (mosaicSqm > 0) {
+                add(7, 11169661, mosaicGlueBagsFromSqm(mosaicSqm));
+                add(7, 81947846, 1); // Гладилка Intek 4×4 — мозаика
+            }
             /* 86220370, 15649363, 15649371, 605125 — см. блок ниже: мин. 1 шт., если артикула ещё нет в корзине по этапам */
         }
         /* Сверла копьевидные по керамике Neolaser 6/8/10 мм — только при работах с плиткой в справочнике */
         if (hasTileWorkScope(selectedMaterials)) {
             [89424572, 89424578, 89424579].forEach(function (id) { add(7, id, 1); });
         }
-        const tileMusorBags = tileMusorBagsFromAreaSqm(ceramicPorcelainTileAreaSqm(selectedMaterials, calc));
+        const tileMusorBags = tileMusorBagsFromAreaSqm(ceramicPorcelainTileAreaSqm(selectedMaterials, calc))
+            + mosaicMusorBagsFromSqm(mosaicTileAreaSqm(selectedMaterials, calc));
         if (tileMusorBags > 0) {
             add(7, 17968499, tileMusorBags / MUSOR_BAGS_PER_PACK);
         }
@@ -3847,10 +3984,7 @@ function exportMaterialsLinksToExcel(address) {
             hasWallPuttySprav
             || (selectedMaterials.ceilings && selectedMaterials.ceilings.some(function (c) { return c.type === 'puttyCeiling'; }))
         );
-        const hasDecorativeWallScope = Boolean(
-            (selectedMaterials.walls && selectedMaterials.walls.type === 'decorative')
-            || (selectedMaterials.wallsVariants && selectedMaterials.wallsVariants.some(function (v) { return v && v.type === 'decorative'; }))
-        );
+        const hasDecorativeWallScopeFlag = hasDecorativeWallScope(selectedMaterials);
         const hasGypsumFrameLivingWallScope = Boolean(
             selectedMaterials.walls && selectedMaterials.walls.type === 'gypsumFrame' && wallMaterialArea > 0
         );
@@ -3881,19 +4015,19 @@ function exportMaterialsLinksToExcel(address) {
         const omitSealantGunForSelfLeveling = additionalFloorsHasSelfLeveling(selectedMaterials.additionalFloors)
             || additionalFloorsHasSelfLeveling(selectedMaterials.additionalBathroomFloors);
 
-        // ЭТАП 8 — отделочные (инструмент по 1; набор Matrix 13653975 — после расчёта СТ17; губки шлифовальные — по шпаклёвке стен, см. ниже)
+        // ЭТАП 8 — отделочные (инструмент по 1; набор Matrix 13653975 — после расчёта СТ17; губки шлифовальные — этап 6/10 при шпаклёвке)
         if (hasStage8ToolsScope) {
             const stage8OmitWhenOnlyLivingFloors = [89402327, 89432387, 89394761];
             const stage8FoamGunSku = [89432387, 89394761];
             const stage8SealantGunSku = [89402327];
             let stage8CoreToolIds = [15369329, 89419395, 89402327, 89432387, 89394761, 85579724, 17517621];
-            if (hasPorcelainTileScope) {
+            if (shouldOmitStage8FoamGun(selectedMaterials, mosaicSqm)) {
                 stage8CoreToolIds = stage8CoreToolIds.filter(function (id) { return stage8FoamGunSku.indexOf(id) === -1; });
             }
             if (omitFoamGunForScreedOrSelfLeveling) {
                 stage8CoreToolIds = stage8CoreToolIds.filter(function (id) { return stage8FoamGunSku.indexOf(id) === -1; });
             }
-            if (omitSealantGunForSelfLeveling || hasDecorativeWallScope || hasGypsumFrameLivingWallScope) {
+            if (omitSealantGunForSelfLeveling || hasDecorativeWallScopeFlag || hasGypsumFrameLivingWallScope || hasPuttyWorkForCornerProfile || hasWallpaperWallScope(selectedMaterials)) {
                 stage8CoreToolIds = stage8CoreToolIds.filter(function (id) { return stage8SealantGunSku.indexOf(id) === -1; });
             }
             if (hasArmstrongCeilingSprav) {
@@ -3960,20 +4094,8 @@ function exportMaterialsLinksToExcel(address) {
             if (qMak === 0) add(8, MAKLOVITSA_SKU, 1);
         }
 
-        /* Губки шлифовальные 18783904 (P120), 18782696 (P180): при шпаклёвке стен — по 1 шт. каждой на каждые 100 м² площади под шпаклёвку */
-        const hasWallPuttySpongeScope = hasWallPuttySprav && wallPuttyMaterialArea > 0;
-        if (hasWallPuttySpongeScope) {
-            add(8, 18783904, wallPuttyMaterialArea / 100);
-            add(8, 18782696, wallPuttyMaterialArea / 100);
-        }
-        const hasCeilingPuttySpongeScope = selectedMaterials.ceilings && selectedMaterials.ceilings.some(function (c) { return c.type === 'puttyCeiling'; }) && livingCeilingSqm > 0;
-        if (hasCeilingPuttySpongeScope) {
-            add(8, 18783904, livingCeilingSqm / 100);
-            add(8, 18782696, livingCeilingSqm / 100);
-        }
-
         /* Обои: клей Kleo — 1 уп. на 50 м² стен; шпатель для прикатки — 1 шт. */
-        if (selectedMaterials.walls && selectedMaterials.walls.type === 'wallpaper' && wallMaterialArea > 0) {
+        if (hasWallpaperWallScope(selectedMaterials) && wallMaterialArea > 0) {
             add(8, 14382986, wallMaterialArea / 50);
             add(8, 15649398, 1);
         }
@@ -4013,6 +4135,7 @@ function exportMaterialsLinksToExcel(address) {
             const hasPuttyCeiling = selectedMaterials.ceilings.some(function (c) { return c.type === 'puttyCeiling'; });
             if (hasPuttyCeiling && livingCeilingSqm > 0) {
                 add(10, 89283063, livingCeilingSqm / 20);
+                addPuttySandingSponges(add, 10, livingCeilingSqm);
             }
             const hasArmstrongCeiling = selectedMaterials.ceilings.some(function (c) { return c.type === 'armstrong'; });
             if (hasArmstrongCeiling) {
@@ -4090,7 +4213,8 @@ function exportMaterialsLinksToExcel(address) {
         }
         let matrixSetQty = 0;
         if (ct17QtyForMatrix > 0) matrixSetQty += 1;
-        if (selectedMaterials.walls && selectedMaterials.walls.type === 'wallpaper' && wallMaterialArea > 0) matrixSetQty += 1;
+        if (hasWallpaperWallScope(selectedMaterials) && wallMaterialArea > 0) matrixSetQty += 1;
+        if (hasDecorativeWallScope(selectedMaterials) && computeRadugaDecorativeWallSqm(selectedMaterials) > 0) matrixSetQty += 1;
         if (matrixSetQty > 0) add(8, 13653975, matrixSetQty);
 
         /* Коронка 89404986: при розетках / выключателях — 1 шт., если артикул ещё не попал в корзину от других этапов */
@@ -5750,16 +5874,21 @@ function buildScheduleData(calc) {
     }
 
     if (hasWallWallpaper && v.wallArea > 0) {
+        const wallpaperSqm = computeRadugaWallpaperPaintSqm(sm) || v.wallArea;
         schedulePushStage(stages, 'wallpaper', 'Финиш стен: обои', [
-            schedulePrimerTask('Грунтовка перед обоями', v.wallArea, 'Sстен'),
+            schedulePrimerTask('Грунтовка пропиткой Радуга-27', wallpaperSqm, 'Sоб'),
             { name: 'Поклейка обоев', raw: 4 * (v.wallArea * 0.15) / 3, formula: '4×(S×0,15)/3' }
         ]);
     }
 
     if (hasWallPaintDecor && v.wallArea > 0) {
-        schedulePushStage(stages, 'wallPaint', 'Финиш стен: краска / декор', [
-            { name: 'Окраска / декор', raw: v.wallArea * 0.2 + 4, formula: 'S×0,2+4' }
-        ]);
+        const wallPaintTasks = [];
+        const paintWallSqm = computeRadugaWallpaperPaintSqm(sm) + computeRadugaDecorativeWallSqm(sm);
+        if (paintWallSqm > 0) {
+            wallPaintTasks.push(schedulePrimerTask('Грунтовка пропиткой Радуга-27', paintWallSqm, 'Sоб/крас'));
+        }
+        wallPaintTasks.push({ name: 'Окраска / декор', raw: v.wallArea * 0.2 + 4, formula: 'S×0,2+4' });
+        schedulePushStage(stages, 'wallPaint', 'Финиш стен: краска / декор', wallPaintTasks);
     }
 
     if (hasPlasterPaintCeiling && v.ceilingArea > 0) {
