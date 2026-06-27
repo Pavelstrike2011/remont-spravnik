@@ -1249,8 +1249,8 @@ function demolitionMusorBagPacksFromSqm(demoType, sq) {
 
 const LIGHT_DEMOLITION_TYPES = { demoLinoleum: 1, demoWallpaper: 1, demoPaint: 1 };
 
-/** Ёмкость КЭС 60 л (86759162) — при демонтаже стен/пола; не при одних линолеум/обои/краска. */
-function demolitionNeedsKesContainer(demolitionArr) {
+/** Емкость Matrix 65 л (89468179) — при демонтаже стен/пола; не при одних линолеум/обои/краска. */
+function demolitionNeedsMixingContainer(demolitionArr) {
     if (!demolitionArr || !demolitionArr.length) return false;
     return demolitionArr.some(function (job) {
         return job && job.type && !LIGHT_DEMOLITION_TYPES[job.type];
@@ -1316,6 +1316,38 @@ function lemanaBasketProductParamFromSku(sku) {
     const map = { '605125': '87553787' }; // диск Rage по керамограниту — арт. 605125, id карточки 87553787
     const k = String(sku);
     return map[k] || k;
+}
+
+function getLemanaMaterialPrice(sku) {
+    const prices = global.LEMANA_MATERIAL_PRICES || {};
+    const k = String(sku);
+    const direct = Number(prices[k]);
+    if (isFinite(direct)) return direct;
+    const basketSku = lemanaBasketProductParamFromSku(k);
+    const mapped = Number(prices[basketSku]);
+    return isFinite(mapped) ? mapped : 0;
+}
+
+function calculateBasketStageRangeCost(lastCalc, ch, minStage, maxStage) {
+    if (!lastCalc) return 0;
+    const products = getBasketProducts(lastCalc, ch);
+    const stage = products && products.stage ? products.stage : {};
+    const merged = products && products.merged ? products.merged : new Map();
+    const seen = new Set();
+    const minS = Math.max(2, minStage || 2);
+    const maxS = Math.min(10, maxStage || 10);
+    let total = 0;
+    for (let s = minS; s <= maxS; s++) {
+        if (!stage[s]) continue;
+        stage[s].forEach(function (qty, id) {
+            const sku = String(id);
+            if (seen.has(sku)) return;
+            seen.add(sku);
+            const q = Math.max(1, Math.ceil(parseFloat(String(merged.get(sku))) || 0));
+            total += q * getLemanaMaterialPrice(sku);
+        });
+    }
+    return Math.round(total);
 }
 
 /** Каталог керамогранита — для ссылок в блоке материалов при type === porcelain (жилые стены/пол, санузел); не путать с nastennaya/napolnaya плиткой. */
@@ -3409,8 +3441,8 @@ function exportMaterialsLinksToExcel(address) {
         // ЭТАП 2 — демонтаж (demo-wall / demo-floor / demo-linoleum / demo-wallpaper / demo-paint; перегородки — отдельно, не этап 2)
         if (hasDemolitionOrPartitionsForStage2) {
             [88022833, 82303712, 86407837].forEach(id => add(2, id, 1));
-            if (demolitionNeedsKesContainer(selectedMaterials.demolition)) {
-                add(2, 86759162, 1); // Ёмкость КЭС 60 л — не при демонтаже линолеума / обоев / краски
+            if (demolitionNeedsMixingContainer(selectedMaterials.demolition)) {
+                add(2, 89468179, 1); // Емкость Matrix 65 л — не при демонтаже линолеума / обоев / краски
             }
             add(2, 89340784, 5);   // Перчатки хлопчатобумажные 68072 V2 размер единый, 5 пар — 5 шт по стандарту
             add(2, 89437391, 2); // Ведро Лемана Про 10 л — 2 шт по стандарту
@@ -3549,14 +3581,14 @@ function exportMaterialsLinksToExcel(address) {
         const sinkCount = (selectedMaterials.plumbing || []).reduce((sum, s) => (s.type === 'sink' || s.type === 'sinkcabinet') ? sum + (parseInt(s.quantity, 10) || 1) : sum, 0);
         if (sinkCount > 0) {
             add(4, 81952840, sinkCount);     add(4, 11348723, sinkCount * 2); add(4, 81952831, sinkCount); add(4, 81952827, sinkCount); add(4, 81952825, sinkCount);
-            add(4, 18551054, sinkCount);    add(4, 82173822, sinkCount * 2); add(4, 89423944, sinkCount); add(4, 82173883, sinkCount); add(4, 82661642, sinkCount * 2);
+            add(4, 18551054, sinkCount);    add(4, 82173822, sinkCount * 2); add(4, 89423944, sinkCount); add(4, 82173883, sinkCount); add(4, 86853146, sinkCount * 2);
             add(4, 12761122, sinkCount * 2); add(4, 84858780, sinkCount);
         }
 
         const showerCount = (selectedMaterials.plumbing || []).reduce((sum, s) => s.type === 'shower' ? sum + (parseInt(s.quantity, 10) || 1) : sum, 0);
         if (showerCount > 0) {
             add(4, 81952840, showerCount);     add(4, 11348723, showerCount * 2); add(4, 81952831, showerCount); add(4, 81952827, showerCount); add(4, 81952825, showerCount);
-            add(4, 82173822, showerCount * 2); add(4, 89423944, showerCount); add(4, 82173883, showerCount); add(4, 82661642, showerCount * 2);
+            add(4, 82173822, showerCount * 2); add(4, 89423944, showerCount); add(4, 82173883, showerCount); add(4, 86853146, showerCount * 2);
             add(4, 12761122, showerCount * 2); add(4, 84858780, showerCount);
         }
 
@@ -3588,7 +3620,7 @@ function exportMaterialsLinksToExcel(address) {
         if (totalTaps > 0) add(4, 89416049, totalTaps);   // Кран шаровой прямой MONLID PN40 1/2" НР/ВР
 
         if (kitchensinkCount > 0) {
-            add(4, 82173822, kitchensinkCount * 2); add(4, 82661642, kitchensinkCount * 2); add(4, 81952827, kitchensinkCount); add(4, 81952840, kitchensinkCount);
+            add(4, 82173822, kitchensinkCount * 2); add(4, 86853146, kitchensinkCount * 2); add(4, 81952827, kitchensinkCount); add(4, 81952840, kitchensinkCount);
             add(4, 81952831, kitchensinkCount); add(4, 81952838, kitchensinkCount * 2); add(4, 82173883, kitchensinkCount); add(4, 82173933, kitchensinkCount * 4);
             add(4, 11348723, kitchensinkCount * 2); add(4, 12761122, kitchensinkCount * 2); add(4, 84858780, kitchensinkCount);
         }
@@ -3665,7 +3697,12 @@ function exportMaterialsLinksToExcel(address) {
             const plasterBeaconQty = beaconsQtyFromRunM(plasterWallPerimeter);
             add(6, 16126441, plasterBeaconQty); add(6, 15534291, (plasterBeaconQty * 6) / 25);
             beaconFastenerPiecesWallPlaster += plasterBeaconQty * 6;
-            add(6, 89468179, 1); // Емкость для смешивания Matrix 65 л
+            let qMixBucketPlaster = 0;
+            for (let stMix = 2; stMix < 6; stMix++) {
+                const mbPlaster = stage[stMix].get('89468179');
+                if (mbPlaster) qMixBucketPlaster += mbPlaster;
+            }
+            if (qMixBucketPlaster === 0) add(6, 89468179, 1); // Емкость Matrix 65 л
         }
         /* Штукатурка под плитку в санузле — тот же расчёт Ротбанда и маяков, что у штукатурки стен (этап 6), площадь из подраздела bw-plaster или из плана */
         let bathPlasterUnderTileSqm = 0;
@@ -5199,6 +5236,9 @@ function buildScheduleTimelinePanelHtml(calc, startDateInput) {
         });
         
         // Итоговая стоимость
+        const roughMaterialsCost = estimateData && estimateData.roughMaterialsCost > 0
+            ? Math.round(Number(estimateData.roughMaterialsCost))
+            : 0;
         html += `
                 </tbody>
                 <tfoot>
@@ -5207,6 +5247,12 @@ function buildScheduleTimelinePanelHtml(calc, startDateInput) {
                         <td><strong>Итоговая стоимость работ:</strong></td>
                         <td colspan="3"></td>
                         <td><strong><span class="estimate-total-sum">${totalCost.toLocaleString('ru-RU')} ₽</span></strong></td>
+                    </tr>
+                    <tr class="estimate-materials-total">
+                        <td></td>
+                        <td><strong>Стоимость черновых материалов:</strong></td>
+                        <td colspan="3"></td>
+                        <td><strong><span class="estimate-materials-total-sum">${roughMaterialsCost.toLocaleString('ru-RU')} ₽</span></strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -5310,11 +5356,21 @@ function exportEstimateToExcel(estimateData) {
         `;
         }
         // Итоговая стоимость
+        const roughMaterialsCost = estimateData && estimateData.roughMaterialsCost > 0
+            ? Math.round(Number(estimateData.roughMaterialsCost))
+            : 0;
         htmlContent += `
             <tr class="total">
                 <td>Итоговая стоимость работ:</td>
                 <td colspan="3"></td>
                 <td class="number" x:num="${totalCost}" style="mso-number-format:'0';text-align:right">${totalCost}</td>
+            </tr>
+        `;
+        htmlContent += `
+            <tr class="total">
+                <td>Стоимость черновых материалов:</td>
+                <td colspan="3"></td>
+                <td class="number" x:num="${roughMaterialsCost}" style="mso-number-format:'0';text-align:right">${roughMaterialsCost}</td>
             </tr>
         `;
         
@@ -6661,6 +6717,7 @@ global.CmetShared = {
     applyEstimateDomEdits: applyEstimateDomEdits,
     collectEstimateFromMirror: collectEstimateFromMirror,
     getBasketProducts: getBasketProducts,
+    calculateBasketStageRangeCost: calculateBasketStageRangeCost,
     getBasketUrl: getBasketUrl,
     getBasketUrlForStageRange: getBasketUrlForStageRange,
     buildBasketStageRangePanelHtml: buildBasketStageRangePanelHtml,

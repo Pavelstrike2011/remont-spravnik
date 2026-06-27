@@ -624,7 +624,8 @@
 
         .estimate-wrap .estimate-table tr.category,
         .estimate-wrap .estimate-table tr.subcategory,
-        .estimate-wrap .estimate-table tr.estimate-total {
+        .estimate-wrap .estimate-table tr.estimate-total,
+        .estimate-wrap .estimate-table tr.estimate-materials-total {
             display: block;
         }
 
@@ -789,7 +790,8 @@
             color: var(--accent);
         }
 
-        .estimate-wrap .estimate-table tr.estimate-total {
+        .estimate-wrap .estimate-table tr.estimate-total,
+        .estimate-wrap .estimate-table tr.estimate-materials-total {
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
@@ -800,18 +802,28 @@
             border-top: 2px solid var(--border);
         }
 
+        .estimate-wrap .estimate-table tr.estimate-materials-total {
+            margin-top: 0.2rem;
+            padding-top: 0.35rem;
+            border-top: 1px solid var(--divider);
+        }
+
         .estimate-wrap .estimate-table tr.estimate-total td:empty,
-        .estimate-wrap .estimate-table tr.estimate-total td[colspan] {
+        .estimate-wrap .estimate-table tr.estimate-total td[colspan],
+        .estimate-wrap .estimate-table tr.estimate-materials-total td:empty,
+        .estimate-wrap .estimate-table tr.estimate-materials-total td[colspan] {
             display: none;
         }
 
-        .estimate-wrap .estimate-table tr.estimate-total td {
+        .estimate-wrap .estimate-table tr.estimate-total td,
+        .estimate-wrap .estimate-table tr.estimate-materials-total td {
             display: block;
             font-weight: 700;
             background: transparent;
         }
 
-        .estimate-wrap .estimate-table tr.estimate-total .estimate-total-sum {
+        .estimate-wrap .estimate-table tr.estimate-total .estimate-total-sum,
+        .estimate-wrap .estimate-table tr.estimate-materials-total .estimate-materials-total-sum {
             font-size: 0.95rem;
         }
 
@@ -1389,7 +1401,8 @@
         </div>
     </div>
 
-    <script src="cmet-shared-engine.js?v=20250624b"></script>
+    <script src="lemana-material-prices.js?v=20250624d"></script>
+    <script src="cmet-shared-engine.js?v=20250624l"></script>
     <script>
         (function () {
             var ROOM_CONFIGS = {
@@ -2731,8 +2744,10 @@
                     }
                 }
                 var sumEl = estimateContent.querySelector('.estimate-total-sum');
+                var roughMaterialsEl = estimateContent.querySelector('.estimate-materials-total-sum');
                 lines.push('');
-                if (sumEl) lines.push('Итого: ' + sumEl.textContent.replace(/\s+/g, ' ').trim());
+                if (sumEl) lines.push('Итоговая стоимость работ: ' + sumEl.textContent.replace(/\s+/g, ' ').trim());
+                if (roughMaterialsEl) lines.push('Стоимость черновых материалов: ' + roughMaterialsEl.textContent.replace(/\s+/g, ' ').trim());
                 return lines.join('\n');
             }
 
@@ -2850,6 +2865,9 @@
 
                     var meta = buildEstimateMeta(engineCalc);
                     var ed = CmetShared.generateDetailedEstimateData(apartmentTypeSel.value, meta);
+                    if (CmetShared.calculateBasketStageRangeCost) {
+                        ed.roughMaterialsCost = CmetShared.calculateBasketStageRangeCost(engineCalc, meta.ch, 2, 10);
+                    }
                     var html = CmetShared.buildEstimateTableHtml(ed);
                     estimateContent.innerHTML = html;
                     lastEstimateData = ed;
