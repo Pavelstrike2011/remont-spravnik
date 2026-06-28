@@ -1328,6 +1328,140 @@ function getLemanaMaterialPrice(sku) {
     return isFinite(mapped) ? mapped : 0;
 }
 
+const BASKET_PRODUCT_NAMES = {
+    '10073940': 'Штукатурка гипсовая Knauf Ротбанд 30 кг',
+    '10977309': 'Крестики для кафельной плитки Стройбат 2 мм 100 шт.',
+    '11169661': 'Клей для мозаики Litokol Литоплюс К55 25 кг',
+    '11348723': 'Крепеж двойной для полипропиленовой трубы РВК 20 мм',
+    '12005431': 'Валик игольчатый для наливных полов Сибртех 240 мм',
+    '12037193': 'Пропитка акриловая Радуга-27 укрепляющая 10 кг',
+    '12463053': 'Изолента IEK 19 мм 20 м ПВХ цвет чёрный',
+    '12757510': 'Грунтовка глубокого проникновения Ceresit CT17 10 л',
+    '12893977': 'Нож Matrix 18 мм пластиковая ручка',
+    '12902474': 'Профиль потолочный направляющий ППН Эконом 28x27x3000 мм',
+    '12903338': 'Евро-подвес для потолка в сборе 275x36 мм',
+    '13323749': 'Валик игольчатый Сибртех 300 мм',
+    '13353198': 'Подрозетник Systeme Electric под бетон 68x45 мм',
+    '13353411': 'Подрозетник Systeme Electric под гипсокартон 68x45 мм',
+    '13452305': 'Профиль угловой пристеночный 19x19x3000 мм',
+    '13653975': 'Набор малярный Matrix валик 250 мм и кювета',
+    '13857230': 'Наливной пол Axton 20 кг',
+    '14182298': 'Гидроизоляция эластичная Glims GreenRezin 7 кг',
+    '14382986': 'Клей для тяжелых обоев Kleo Ultra 50 м²',
+    '14886543': 'Клей для плитки Gerkules C1 Суперполимер GM-45 25 кг',
+    '15052621': 'Т-профиль Эконом 24x600 мм',
+    '15052639': 'Т-профиль Эконом 24x1200 мм',
+    '15052647': 'Т-профиль Эконом 24x3700 мм',
+    '15087997': 'Шпатель зубчатый А2 для клея напольного',
+    '15163435': 'Клей для газоблоков Axton 25 кг',
+    '15369329': 'Стержень телескопический 1150x2000 мм',
+    '15534291': 'Крепёж для маячков, 25 шт.',
+    '15649363': 'Терка для штукатурки с мягкой губкой Интек',
+    '15649371': 'Терка для штукатурки с резиной Интек',
+    '15649398': 'Шпатель для прикатки обоев Интек 280 мм',
+    '16126433': 'Профиль углозащитный оцинкованный Премиум 20x20x3000 мм',
+    '16126441': 'Профиль маячковый Премиум 10x3000 мм',
+    '17496815': 'Черенок деревянный 120 см',
+    '17517621': 'Щётка для уборки улицы Люкс 28 см',
+    '17567484': 'Макловица 150x70 мм синтетическая щетина',
+    '17750553': 'Клей контактный Homakoll 10 кг',
+    '17968499': 'Мешки для строительного мусора 70 л, 10 шт.',
+    '18551011': 'Сифон для ванны Equation с выпуском с ревизией',
+    '18551054': 'Сифон для раковины Equation с выпуском 32 мм',
+    '18746741': 'Труба полипропиленовая Ростерм Aqua 40x5.5 мм 2 м',
+    '81933623': 'Кабель ВВГпнг(A)-LS 3x1.5 на отрез',
+    '81933629': 'Кабель ВВГпнг(A)-LS 3x2.5 на отрез',
+    '81933630': 'Кабель ВВГпнг(A)-LS 3x4 на отрез',
+    '81947846': 'Гладилка зубчатая Интек 4x4 мм',
+    '81952825': 'Труба канализационная РТП 50x1.8 мм 0.25 м',
+    '81952827': 'Труба канализационная РТП 50x1.8 мм 1 м',
+    '81952831': 'Заглушка РТП 50 мм',
+    '81952836': 'Отвод РТП 50 мм 45°',
+    '81952838': 'Отвод РТП 50 мм 87°',
+    '81952840': 'Тройник РТП 50x40x50/87° мм',
+    '81952883': 'Труба канализационная РТП 110x2.7 мм 0.5 м',
+    '81952888': 'Заглушка РТП 110 мм',
+    '81952905': 'Тройник РТП 110x110 мм 45°',
+    '81952906': 'Тройник РТП 110x110 мм 87°',
+    '81952919': 'Переход эксцентрический РТП 110/50 мм',
+    '81975734': 'Дюбель-хомут Oxion D6-12 мм 100 шт.',
+    '82173822': 'Муфта комбинированная РТП 1/2"x20 мм НР',
+    '82173878': 'Планка монтажная 1/2"x20 мм ВР',
+    '82173879': 'Заглушка РТП 20 мм',
+    '82173883': 'Обвод РТП 20 мм',
+    '82173900': 'Тройник РТП 20 мм',
+    '82173914': 'Угол комбинированный РТП 1/2"x20 мм ВР',
+    '82173933': 'Угол 90° РТП 20 мм',
+    '82194825': 'Крепёж Valfex 40 мм полипропилен',
+    '82194897': 'Муфта разъемная Valfex 1/2"x25 мм ВР',
+    '82285188': 'Лезвия для ножа Systec 18 мм, 10 шт.',
+    '82432247': 'Патрон подвесной Oxion E27 с клеммой',
+    '82458369': 'Плита потолочная Knauf Armstrong Байкал 600x600 мм',
+    '82798222': 'Кисть плоская Dexter 50 мм',
+    '82798224': 'Кисть плоская Dexter 100 мм',
+    '82909816': 'Бур по бетону SDS-plus 6x42x110 мм',
+    '84038798': 'Дюбель-гвоздь грибовидный 6x40 мм 500 шт.',
+    '84039780': 'Дюбель универсальный ZUM 6x52 мм 50 шт.',
+    '84509784': 'Клеммы монтажные Duwi СМК 772-208 5 шт.',
+    '84858780': 'Хомут сантехнический Mayer 1 1/2"',
+    '84858785': 'Хомут сантехнический Mayer 4"',
+    '85579724': 'Набор салфеток из микрофибры 35x35 см 4 шт.',
+    '85945154': 'Блок газобетонный Сибит D600 625x150x250 мм',
+    '86220370': 'Гладилка зубчатая Vertextools 8x8 мм',
+    '86262884': 'Мешки тканевые для пылесоса Dexter 30 л, 4 шт.',
+    '86270629': 'Лампочка светодиодная E27 24 Вт',
+    '87093280': 'Саморезы 3.5x51 на вес',
+    '87093283': 'Саморезы 4.2x70 на вес',
+    '87553787': 'Диск алмазный по керамограниту Rage 125 мм',
+    '87712166': 'Валик сменный Toolberg 120 мм',
+    '87964079': 'Распределительная коробка LEXMAN 85x85x40 мм',
+    '88022833': 'Диск отрезной по металлу Сибртех 125 мм',
+    '88041437': 'Манжета сантехническая переходная MPF 50x25 мм',
+    '88698314': 'Лента демпферная Isodom 10 мм',
+    '88993423': 'Правило алюминиевое трапеция 1 м',
+    '88993426': 'Правило алюминиевое трапеция 2 м',
+    '89283063': 'Шпатлевка полимерная финишная GERKULES GT-53 20 кг',
+    '89349442': 'Забивной анкер-клин 6x40 мм 100 шт.',
+    '89374069': 'Карандаш строительный Кобальт двухцветный',
+    '89376015': 'Кран шаровой угловой Bugatti Miami 1/2"x3/4"',
+    '89376094': 'Комплект для крепления унитаза 8x65 мм',
+    '89383376': 'Бур по бетону SDS-plus 8x110 мм',
+    '89394761': 'Пистолет для монтажной пены Сибртех',
+    '89404986': 'Коронка по кирпичу SDS-plus Vertextools 68 мм',
+    '89407217': 'Перчатки нейлоновые Gl24030 размер L',
+    '89409383': 'Гибкая подводка Ростерм 1/2" 50 см',
+    '89410454': 'Шпатель фасадный Hansa 150 мм',
+    '89410456': 'Шпатель фасадный Hansa 350 мм',
+    '89416049': 'Кран шаровой прямой MONLID PN40 1/2"',
+    '89418702': 'Гофра для унитаза MONLID D110 мм',
+    '89419395': 'Малярная лента MONLID 48 мм x 50 м 3 шт.',
+    '89421413': 'Подложка XPS Пеноплэкс 3 мм 5.04 м²',
+    '89423944': 'Труба полипропиленовая MONLID 20x3.4 мм 2 м',
+    '89424572': 'Сверло по керамике Neolaser 6 мм',
+    '89424578': 'Сверло по керамике Neolaser 8 мм',
+    '89424579': 'Сверло по керамике Neolaser 10 мм',
+    '89432387': 'Пена монтажная Макрофлекс Мега 850 мл',
+    '89434298': 'Шпатлевка готовая Gerkules GT-243 18 кг',
+    '89437391': 'Ведро Лемана Про 10 л',
+    '89445192': 'Шпатель фасадный Интек 350 мм',
+    '89445233': 'Шпатель малярный Интек 100 мм',
+    '89454656': 'Кабельная стяжка Oxion 4.8x300 мм 100 шт.',
+    '89468179': 'Емкость для смешивания Matrix 65 л'
+};
+
+function getBasketProductName(sku) {
+    const k = String(sku);
+    const external = global.LEMANA_MATERIAL_NAMES || global.CMET_MATERIAL_NAMES || {};
+    return external[k] || BASKET_PRODUCT_NAMES[k] || ('Артикул ' + k);
+}
+
+function formatLemanaRub(amount) {
+    if (amount == null || !isFinite(Number(amount))) return '—';
+    const n = Number(amount);
+    const isInt = Math.abs(n - Math.round(n)) < 0.001;
+    return (isInt ? Math.round(n).toLocaleString('ru-RU') : n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' ₽';
+}
+
 function calculateBasketStageRangeCost(lastCalc, ch, minStage, maxStage) {
     if (!lastCalc) return 0;
     const products = getBasketProducts(lastCalc, ch);
@@ -1459,20 +1593,6 @@ function buildMaterialsListHtml() {
                 detailParts.push(buildTileGroutDetailLinkHtml());
             }
             const details = detailParts.length ? detailParts.join('<br>') : '';
-            const card = `<div class="material-category-title">${title}</div>${details ? `<div class="material-category-details">${details}</div>` : ''}`;
-            html += `<div class="material-category-card">${card}</div>`;
-        } else if (selectedMaterials.additionalWalls && selectedMaterials.additionalWalls.some(m => isWallPuttySpravType(m.type))) {
-            const title = 'Стены';
-            const detailLines = [];
-            selectedMaterials.additionalWalls.forEach(m => {
-                if (isWallPuttySpravType(m.type) && m.area) {
-                    const puttyLinkType = m.type === 'puttyWallpaper' ? 'wallpaper' : 'paint';
-                    const href = getMaterialLink('walls', puttyLinkType);
-                    const label = formatMaterialAreaKvmLabel(m.name || '', m.area);
-                    detailLines.push(buildMaterialDetailLinkHtml(href, label));
-                }
-            });
-            const details = detailLines.join('<br>');
             const card = `<div class="material-category-title">${title}</div>${details ? `<div class="material-category-details">${details}</div>` : ''}`;
             html += `<div class="material-category-card">${card}</div>`;
         }
@@ -4641,13 +4761,37 @@ function buildBasketStageRangePanelHtml(lastCalc, ch, minStage, maxStage) {
         return '<p class="est-panel-empty">Нет позиций для выбранных работ.</p>';
     }
     let rows = '';
+    let total = 0;
+    let pricedCount = 0;
     entries.forEach(function (e) {
-        rows += '<tr><td class="sku">' + escapeHtmlText(e[0]) + '</td><td class="est-basket-qty">' + escapeHtmlText(String(e[1])) + '</td></tr>';
+        const sku = e[0];
+        const qty = e[1];
+        const unitPrice = getLemanaMaterialPrice(sku);
+        const hasPrice = unitPrice > 0;
+        const lineSum = hasPrice ? unitPrice * qty : 0;
+        if (hasPrice) {
+            total += lineSum;
+            pricedCount++;
+        }
+        rows += '<tr class="est-basket-row">' +
+            '<td class="sku" data-label="Артикул">' + escapeHtmlText(sku) + '</td>' +
+            '<td class="est-basket-name" data-label="Наименование">' + escapeHtmlText(getBasketProductName(sku)) + '</td>' +
+            '<td class="est-basket-qty" data-label="Кол-во">' + escapeHtmlText(String(qty)) + '</td>' +
+            '<td class="est-basket-price" data-label="Цена">' + (hasPrice ? formatLemanaRub(unitPrice) : '—') + '</td>' +
+            '<td class="est-basket-sum" data-label="Сумма">' + (hasPrice ? formatLemanaRub(lineSum) : '—') + '</td>' +
+            '</tr>';
     });
-    let html = '<table class="est-basket-table"><thead><tr><th>Артикул</th><th>Кол-во</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    let foot = '';
+    if (pricedCount > 0) {
+        if (pricedCount < entries.length) {
+            foot += '<tr><td colspan="5" class="est-basket-note">Сумма по ' + pricedCount + ' из ' + entries.length + ' позиций. Для остальных нет цены.</td></tr>';
+        }
+        foot += '<tr class="est-basket-total"><td colspan="4"><strong>Итого материалы</strong></td><td class="est-basket-sum est-basket-sum--total"><strong>' + formatLemanaRub(total) + '</strong></td></tr>';
+    }
+    let html = '<table class="est-basket-table est-basket-table--detailed"><thead><tr><th>Артикул</th><th>Наименование</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead><tbody>' + rows + '</tbody>' + (foot ? '<tfoot>' + foot + '</tfoot>' : '') + '</table>';
     const url = getBasketUrlForStageRange(lastCalc, ch, minStage, maxStage);
     if (url) {
-        html += '<p class="est-panel-basket-link"><a href="' + escapeHtmlText(url) + '" target="_blank" rel="noopener noreferrer">Корзина Леруа Мерлен</a></p>';
+        html += '<p class="est-panel-basket-link"><a href="' + escapeHtmlText(url) + '" target="_blank" rel="noopener noreferrer">Открыть корзину Леруа Мерлен</a></p>';
     }
     return html;
 }

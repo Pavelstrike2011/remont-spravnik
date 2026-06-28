@@ -979,6 +979,110 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .est-basket-table--detailed {
+            display: block;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .est-basket-table--detailed thead {
+            display: none;
+        }
+
+        .est-basket-table--detailed tbody,
+        .est-basket-table--detailed tfoot {
+            display: block;
+        }
+
+        .est-basket-table--detailed tr.est-basket-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.25rem 0.65rem;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid var(--divider);
+        }
+
+        .est-basket-table--detailed td {
+            display: block;
+            padding: 0;
+            border: none;
+        }
+
+        .est-basket-table--detailed .sku {
+            grid-column: 1;
+            grid-row: 1;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: 0.02em;
+        }
+
+        .est-basket-table--detailed .est-basket-name {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            font-size: 0.8rem;
+            font-weight: 700;
+            line-height: 1.35;
+            color: var(--title);
+        }
+
+        .est-basket-table--detailed .est-basket-qty {
+            grid-column: 2;
+            grid-row: 1;
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            font-weight: 800;
+            color: var(--title);
+        }
+
+        .est-basket-table--detailed .est-basket-price,
+        .est-basket-table--detailed .est-basket-sum {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-align: left;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .est-basket-table--detailed .est-basket-price::before,
+        .est-basket-table--detailed .est-basket-sum::before {
+            content: attr(data-label) ': ';
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .est-basket-table--detailed .est-basket-sum {
+            text-align: right;
+            color: var(--title);
+        }
+
+        .est-basket-table--detailed tfoot tr {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.75rem 0 0;
+            border: none;
+        }
+
+        .est-basket-table--detailed tfoot td {
+            padding: 0;
+            border: none;
+            font-weight: 800;
+        }
+
+        .est-basket-table--detailed .est-basket-note {
+            display: block;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .est-basket-table--detailed .est-basket-sum--total {
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
         .est-panel-basket-link {
             margin: 0.85rem 0 0;
             font-size: 0.85rem;
@@ -987,6 +1091,29 @@
         .est-panel-basket-link a {
             color: var(--accent);
             font-weight: 700;
+        }
+
+        .estimate-rough-wrap .est-panel-basket-link {
+            margin: 1rem 0 0;
+        }
+
+        .estimate-rough-wrap .est-panel-basket-link a {
+            display: block;
+            width: 100%;
+            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            font: inherit;
+            font-size: 1rem;
+            font-weight: 800;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: var(--btn-shadow);
+        }
+
+        .estimate-rough-wrap .est-panel-basket-link a:active {
+            background: var(--btn-bg-active);
         }
 
         .est-schedule-summary {
@@ -1356,6 +1483,10 @@
                 <h2 class="estimate-schedule-title">График работ</h2>
                 <div id="estimateScheduleBody"></div>
             </div>
+            <div class="estimate-materials-wrap estimate-rough-wrap" id="estimateRoughWrap" hidden>
+                <h2 class="estimate-materials-title">Черновые материалы</h2>
+                <div class="estimate-materials-native estimate-rough-native" id="estimateRoughBody"></div>
+            </div>
             <div class="estimate-materials-wrap" id="estimateMaterialsWrap" hidden>
                 <h2 class="estimate-materials-title">Финишные материалы</h2>
                 <div class="estimate-materials-native" id="estimateMaterialsBody"></div>
@@ -1402,7 +1533,7 @@
     </div>
 
     <script src="lemana-material-prices.js?v=20250624d"></script>
-    <script src="cmet-shared-engine.js?v=20250624l"></script>
+    <script src="cmet-shared-engine.js?v=20250624o"></script>
     <script>
         (function () {
             var ROOM_CONFIGS = {
@@ -1427,6 +1558,8 @@
             var estimateContent = document.getElementById('estimateContent');
             var estimateScheduleWrap = document.getElementById('estimateScheduleWrap');
             var estimateScheduleBody = document.getElementById('estimateScheduleBody');
+            var estimateRoughWrap = document.getElementById('estimateRoughWrap');
+            var estimateRoughBody = document.getElementById('estimateRoughBody');
             var estimateMaterialsWrap = document.getElementById('estimateMaterialsWrap');
             var estimateMaterialsBody = document.getElementById('estimateMaterialsBody');
             var estimateSubView = 'estimate';
@@ -2630,12 +2763,14 @@
 
             var EST_SUB_ESTIMATE = 'estimate';
             var EST_SUB_SCHEDULE = 'schedule';
+            var EST_SUB_ROUGH = 'rough';
             var EST_SUB_MATERIALS = 'materials';
 
             function showEstimateSubView(view, skipHistory) {
                 estimateSubView = view;
                 if (estimateContent) estimateContent.hidden = view !== EST_SUB_ESTIMATE;
                 if (estimateScheduleWrap) estimateScheduleWrap.hidden = view !== EST_SUB_SCHEDULE;
+                if (estimateRoughWrap) estimateRoughWrap.hidden = view !== EST_SUB_ROUGH;
                 if (estimateMaterialsWrap) estimateMaterialsWrap.hidden = view !== EST_SUB_MATERIALS;
                 if (!skipHistory && !historyApplying) pushAppHistory();
                 updateEstimateActionBtn();
@@ -2647,6 +2782,8 @@
                 estBtnSchedule.classList.remove('estimate-actions__btn--long');
                 if (estimateSubView === EST_SUB_SCHEDULE) {
                     estBtnSchedule.textContent = 'Черновые';
+                } else if (estimateSubView === EST_SUB_ROUGH) {
+                    estBtnSchedule.textContent = 'Финишные';
                 } else if (estimateSubView === EST_SUB_MATERIALS) {
                     estBtnSchedule.textContent = 'Отправить список материалов в Max';
                     estBtnSchedule.classList.add('estimate-actions__btn--long');
@@ -2836,6 +2973,8 @@
             function onEstActionSecondaryClick() {
                 if (estimateSubView === EST_SUB_SCHEDULE) {
                     openRoughStep();
+                } else if (estimateSubView === EST_SUB_ROUGH) {
+                    openFinishStep();
                 } else if (estimateSubView === EST_SUB_MATERIALS) {
                     openMaxMaterialsShare();
                 } else {
@@ -3032,6 +3171,7 @@
             function getCurrentStepIndex() {
                 if (currentScreen === SCREEN_ESTIMATE) {
                     if (estimateSubView === EST_SUB_SCHEDULE) return STEP_SCHEDULE;
+                    if (estimateSubView === EST_SUB_ROUGH) return STEP_ROUGH;
                     if (estimateSubView === EST_SUB_MATERIALS) return STEP_FINISH;
                     return STEP_ESTIMATE;
                 }
@@ -3124,7 +3264,7 @@
                     alert('Сначала выполните расчёт площадей');
                     return false;
                 }
-                if (!CmetShared.getBasketUrl) {
+                if (!CmetShared.buildBasketStageRangePanelHtml) {
                     alert('Модуль корзины не загружен');
                     return false;
                 }
@@ -3139,7 +3279,13 @@
                 } else if (estimateSubView !== EST_SUB_ESTIMATE) {
                     showEstimateSubView(EST_SUB_ESTIMATE);
                 }
-                openLemanaBasketUrl(CmetShared.getBasketUrl(ctx.engineCalc, ctx.ch));
+                if (estimateRoughBody) {
+                    estimateRoughBody.innerHTML = CmetShared.buildBasketStageRangePanelHtml(ctx.engineCalc, ctx.ch, 2, 10);
+                }
+                showEstimateSubView(EST_SUB_ROUGH);
+                if (estimateRoughWrap) {
+                    estimateRoughWrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }
                 updateStepper();
                 return true;
             }
