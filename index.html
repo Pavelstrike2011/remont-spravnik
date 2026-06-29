@@ -1532,8 +1532,8 @@
         </div>
     </div>
 
-    <script src="lemana-material-prices.js?v=20250624d"></script>
-    <script src="cmet-shared-engine.js?v=20250624o"></script>
+    <script src="lemana-material-prices.js?v=20250624h"></script>
+    <script src="cmet-shared-engine.js?v=20250624t"></script>
     <script>
         (function () {
             var ROOM_CONFIGS = {
@@ -3449,6 +3449,18 @@
                         }
                         if (!CmetShared.exportScheduleToExcel(ctxSched.engineCalc, getEstimateExportAddress())) {
                             alert('Нет этапов для экспорта');
+                        }
+                        return;
+                    }
+                    if (estimateSubView === EST_SUB_ROUGH) {
+                        var ctxRough = syncEstimateEngineContext();
+                        if (!ctxRough) return;
+                        if (!CmetShared.exportBasketStageRangeToExcel) {
+                            alert('Экспорт черновых материалов недоступен');
+                            return;
+                        }
+                        if (!CmetShared.exportBasketStageRangeToExcel(ctxRough.engineCalc, ctxRough.ch, 2, 10, 'Черновые материалы', getEstimateExportAddress())) {
+                            alert('Нет черновых материалов для экспорта');
                         }
                         return;
                     }

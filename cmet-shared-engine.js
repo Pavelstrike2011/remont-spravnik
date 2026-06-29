@@ -1089,11 +1089,11 @@ function musorBagsMinOnePerSqm(sqm, sqmPerBag) {
     return Math.max(1, Math.ceil(sqm / sqmPerBag));
 }
 
-/** Губки шлифовальные P120/P180: ⌈S / 100⌉ шт. каждой — только при шпаклёвке. */
+/** Губки шлифовальные P320/P600: ⌈S / 100⌉ шт. каждой — только при шпаклёвке. */
 function addPuttySandingSponges(addFn, stageNum, sqm) {
     if (!(sqm > 0) || !addFn) return;
-    addFn(stageNum, 18783904, sqm / 100);
-    addFn(stageNum, 18782696, sqm / 100);
+    addFn(stageNum, 89426777, sqm / 100);
+    addFn(stageNum, 89426779, sqm / 100);
 }
 
 function additionalFloorItemSqm(m) {
@@ -1440,6 +1440,8 @@ const BASKET_PRODUCT_NAMES = {
     '89424572': 'Сверло по керамике Neolaser 6 мм',
     '89424578': 'Сверло по керамике Neolaser 8 мм',
     '89424579': 'Сверло по керамике Neolaser 10 мм',
+    '89426777': 'Губка шлифовальная абразивная Vetonit P320 100x70x25 мм',
+    '89426779': 'Губка шлифовальная абразивная Vetonit P600 100x70x25 мм',
     '89432387': 'Пена монтажная Макрофлекс Мега 850 мл',
     '89434298': 'Шпатлевка готовая Gerkules GT-243 18 кг',
     '89437391': 'Ведро Лемана Про 10 л',
@@ -3390,6 +3392,9 @@ function exportMaterialsLinksToExcel(address) {
         const hasElLampKitScope = (selectedMaterials.electrical || []).some(s => EL_LAMP_KIT_SCOPE_TYPES.has(s.type));
         const hasPlumbingForMaterials = (selectedMaterials.plumbing || []).length > 0;
         const hasDemolition = (selectedMaterials.demolition || []).length > 0;
+        const hasOnlyLightDemolition = hasDemolition && (selectedMaterials.demolition || []).every(function (job) {
+            return job && LIGHT_DEMOLITION_TYPES[job.type];
+        });
         let pgbPartitionSqm = 0;
         let foamPartitionSqm = 0;
         let brickPartitionSqm = 0;
@@ -3560,7 +3565,7 @@ function exportMaterialsLinksToExcel(address) {
 
         // ЭТАП 2 — демонтаж (demo-wall / demo-floor / demo-linoleum / demo-wallpaper / demo-paint; перегородки — отдельно, не этап 2)
         if (hasDemolitionOrPartitionsForStage2) {
-            [88022833, 82303712, 86407837].forEach(id => add(2, id, 1));
+            [88022833, 82303712].forEach(id => add(2, id, 1));
             if (demolitionNeedsMixingContainer(selectedMaterials.demolition)) {
                 add(2, 89468179, 1); // Емкость Matrix 65 л — не при демонтаже линолеума / обоев / краски
             }
@@ -4197,6 +4202,11 @@ function exportMaterialsLinksToExcel(address) {
                     return STAGE8_OMIT_FOR_CEILING_PAINT.indexOf(id) === -1;
                 });
             }
+            if (hasOnlyLightDemolition) {
+                stage8CoreToolIds = stage8CoreToolIds.filter(function (id) {
+                    return [89402327, 89432387, 89394761].indexOf(id) === -1;
+                });
+            }
             (stage8ToolPackOnlyFromLivingFloors
                 ? stage8CoreToolIds.filter(function (id) { return stage8OmitWhenOnlyLivingFloors.indexOf(id) === -1; })
                 : stage8CoreToolIds).forEach(function (id) { add(8, id, 1); });
@@ -4528,29 +4538,6 @@ function exportMaterialsLinksToExcel(address) {
             if (qSponge === 0) add(7, 15649363, 1);
         }
 
-        /* Малярная лента Dexter 82664800 48 мм × 50 м — плитка/мозаика: 1 шт., если артикула ещё нет в корзине; ламинат/ПВХ: площадь/50; покраска стен: (периметр×2)/50 (периметр ≈ 4×√ceilingArea или wallArea/высота) */
-        const DEXTER_TAPE_48_SKU = '82664800';
-        let dexterTape48InStages = 0;
-        for (let s = 2; s <= 10; s++) {
-            const dt = stage[s].get(DEXTER_TAPE_48_SKU);
-            if (dt) dexterTape48InStages += dt;
-        }
-        if (totalTileArea > 0 && dexterTape48InStages === 0) {
-            add(7, 82664800, 1);
-        }
-        getLivingFloorFinishVariants(selectedMaterials).forEach(function (f) {
-            if (!f || !f.type) return;
-            const sq = livingFloorVariantSqm(f, laminateArea);
-            if (f.type === 'laminate' && sq > 0) add(7, 82664800, sq / 50);
-            if (f.type === 'pvc' && sq > 0) add(7, 82664800, sq / 50);
-        });
-        if (selectedMaterials.walls && selectedMaterials.walls.type === 'paint') {
-            const paintRoomPerimeterM = perimeter > 0 ? perimeter : (ceilingHeight > 0 && wallMaterialArea > 0 ? wallMaterialArea / ceilingHeight : 0);
-            if (paintRoomPerimeterM > 0) {
-                add(7, 82664800, (paintRoomPerimeterM * 2) / 50);
-            }
-        }
-
         /* Валик игольчатый 13323749, стержень телескопический 15369329: при наливном поле — по 1 шт., если артикула ещё нет в корзине (этапы 2–10) */
         const SELFLEVEL_NEEDLE_SKU = '13323749';
         const SELFLEVEL_POLE_SKU = '15369329';
@@ -4739,8 +4726,7 @@ function getBasketUrlForStageRange(lastCalc, ch, minStage, maxStage) {
     return LEMANA_BASKET_BASE + parts.join(',') + LEMANA_SHARE;
 }
 
-/** HTML-панель корзины по диапазону этапов (2–7 черновые, 8–10 финишные). */
-function buildBasketStageRangePanelHtml(lastCalc, ch, minStage, maxStage) {
+function getBasketStageRangeEntries(lastCalc, ch, minStage, maxStage) {
     const { stage, merged } = getBasketProducts(lastCalc, ch);
     const entries = [];
     const seen = new Set();
@@ -4752,11 +4738,16 @@ function buildBasketStageRangePanelHtml(lastCalc, ch, minStage, maxStage) {
             const sku = String(id);
             if (seen.has(sku)) return;
             seen.add(sku);
-            const q = Math.max(1, Math.ceil(parseFloat(String(merged.get(sku))) || 0));
-            entries.push([sku, q]);
+            entries.push([sku, Math.max(1, Math.ceil(parseFloat(String(merged.get(sku))) || 0))]);
         });
     }
     entries.sort(function (a, b) { return parseInt(a[0], 10) - parseInt(b[0], 10); });
+    return entries;
+}
+
+/** HTML-панель корзины по диапазону этапов (2–7 черновые, 8–10 финишные). */
+function buildBasketStageRangePanelHtml(lastCalc, ch, minStage, maxStage) {
+    const entries = getBasketStageRangeEntries(lastCalc, ch, minStage, maxStage);
     if (!entries.length) {
         return '<p class="est-panel-empty">Нет позиций для выбранных работ.</p>';
     }
@@ -5547,6 +5538,80 @@ function downloadExcelHtmlFile(htmlContent, downloadFilename) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+}
+
+function exportBasketStageRangeToExcel(lastCalc, ch, minStage, maxStage, title, address) {
+    const entries = getBasketStageRangeEntries(lastCalc, ch, minStage, maxStage);
+    if (!entries.length) return false;
+    const exportTitle = title || 'Список материалов';
+    const downloadFilename = excelExportFilenameStem(
+        minStage === 2 && maxStage === 10 ? 'chernovye_materialy' : 'spisok_materialov',
+        address || ''
+    );
+    let total = 0;
+    let pricedCount = 0;
+    let rows = '';
+    entries.forEach(function (entry, index) {
+        const sku = entry[0];
+        const qty = entry[1];
+        const unitPrice = getLemanaMaterialPrice(sku);
+        const hasPrice = unitPrice > 0;
+        const lineSum = hasPrice ? unitPrice * qty : 0;
+        if (hasPrice) {
+            total += lineSum;
+            pricedCount++;
+        }
+        rows += '<tr>' +
+            '<td class="number">' + escapeHtmlText(String(index + 1)) + '</td>' +
+            '<td>' + escapeHtmlText(sku) + '</td>' +
+            '<td>' + escapeHtmlText(getBasketProductName(sku)) + '</td>' +
+            '<td class="number">' + escapeHtmlText(String(qty)) + '</td>' +
+            (hasPrice ? estimateExcelNumericCellHtml(unitPrice) : '<td class="number"></td>') +
+            (hasPrice ? estimateExcelNumericCellHtml(lineSum) : '<td class="number"></td>') +
+            '</tr>';
+    });
+    const url = getBasketUrlForStageRange(lastCalc, ch, minStage, maxStage);
+    const htmlContent = `
+            <!DOCTYPE html>
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+                    th { background-color: #4472C4; color: white; font-weight: bold; text-align: center; }
+                    .number { text-align: right; }
+                    .total-row { background-color: #E7F0FD; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <h2 style="text-align: center; color: #2F5597;">${escapeHtmlText(exportTitle)}</h2>
+                ${address ? '<p style="text-align: center; color: #666;">' + escapeHtmlText(address) + '</p>' : ''}
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 6%;">№</th>
+                            <th style="width: 14%;">Артикул</th>
+                            <th style="width: 44%;">Наименование</th>
+                            <th style="width: 10%;">Кол-во</th>
+                            <th style="width: 13%;">Цена</th>
+                            <th style="width: 13%;">Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                    <tfoot>
+                        ${pricedCount < entries.length ? '<tr><td colspan="6">Сумма по ' + pricedCount + ' из ' + entries.length + ' позиций. Для остальных нет цены.</td></tr>' : ''}
+                        <tr class="total-row"><td colspan="5">Итого материалы</td>${estimateExcelNumericCellHtml(total)}</tr>
+                        ${url ? '<tr><td colspan="6">Корзина Леруа Мерлен: ' + escapeHtmlText(url) + '</td></tr>' : ''}
+                    </tfoot>
+                </table>
+            </body>
+            </html>
+        `;
+    downloadExcelHtmlFile(htmlContent, downloadFilename);
+    return true;
 }
 
 function spravCalculateEstimate(apartmentTypeForGarbage) {
@@ -6868,6 +6933,7 @@ global.CmetShared = {
     buildScheduleTimelinePanelHtml: buildScheduleTimelinePanelHtml,
     lemanaBasketProductParamFromSku: lemanaBasketProductParamFromSku,
     exportEstimateToExcel: exportEstimateToExcel,
+    exportBasketStageRangeToExcel: exportBasketStageRangeToExcel,
     exportScheduleToExcel: exportScheduleToExcel,
     exportMaterialsLinksToExcel: exportMaterialsLinksToExcel,
     buildMaterialsListHtml: buildMaterialsListHtml,
